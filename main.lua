@@ -365,8 +365,10 @@ end), "togDrag")
 
 local win = Instance.new("Frame")
 win.Name = "win"
-win.Size = UDim2.new(0,600,0,480)
-win.Position = UDim2.new(0.5,-300,0.5,-240)
+-- Responsive sizing: use scale with max size constraint
+win.Size = UDim2.new(0.85, 0, 0.85, 0) -- 85% of screen
+win.Position = UDim2.new(0.5, 0, 0.5, 0)
+win.AnchorPoint = Vector2.new(0.5, 0.5)
 win.BackgroundColor3 = clr.bg
 win.Visible = false
 win.ClipsDescendants = true
@@ -374,6 +376,12 @@ win.Parent = gui
 corner(win,12)
 shadow(win)
 grad(win, clr.bgL, clr.bgD, 90)
+
+-- Add size constraint so window doesn't get too big or too small
+local winSizeConstraint = Instance.new("UISizeConstraint")
+winSizeConstraint.MinSize = Vector2.new(400, 350)
+winSizeConstraint.MaxSize = Vector2.new(700, 550)
+winSizeConstraint.Parent = win
 
 local title = Instance.new("Frame")
 title.Name = "title"
@@ -452,11 +460,15 @@ addConn(uis.InputChanged:Connect(function(i)
     end
 end), "winDrag")
 
-local tabBox = Instance.new("Frame")
+local tabBox = Instance.new("ScrollingFrame")
 tabBox.Name = "tabs"
 tabBox.Size = UDim2.new(0,120,1,-55)
 tabBox.Position = UDim2.new(0,10,0,50)
 tabBox.BackgroundColor3 = clr.surf
+tabBox.ScrollBarThickness = 2
+tabBox.ScrollBarImageColor3 = clr.main
+tabBox.CanvasSize = UDim2.new(0,0,0,0)
+tabBox.AutomaticCanvasSize = Enum.AutomaticSize.Y
 tabBox.Parent = win
 corner(tabBox,8)
 
@@ -522,8 +534,17 @@ local function makeTab(name, ico, ord)
     local lay = Instance.new("UIListLayout")
     lay.Parent = cont
     lay.Padding = UDim.new(0,8)
+    lay.SortOrder = Enum.SortOrder.LayoutOrder
 
     return cont
+end
+
+-- Global layout order counter for each tab
+local layoutOrders = {}
+local function getNextOrder(tabName)
+    if not layoutOrders[tabName] then layoutOrders[tabName] = 0 end
+    layoutOrders[tabName] = layoutOrders[tabName] + 1
+    return layoutOrders[tabName]
 end
 
 function lib:SelectTab(name)
@@ -551,6 +572,7 @@ local function mkToggle(p, txt, def, cb)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1,0,0,36)
     f.BackgroundTransparency = 1
+    f.LayoutOrder = getNextOrder(p.Name)
     f.Parent = p
 
     local l = Instance.new("TextLabel")
@@ -603,6 +625,7 @@ local function mkSlider(p, txt, min, max, def, cb)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1,0,0,50)
     f.BackgroundTransparency = 1
+    f.LayoutOrder = getNextOrder(p.Name)
     f.Parent = p
 
     local l = Instance.new("TextLabel")
@@ -647,42 +670,68 @@ local function mkSlider(p, txt, min, max, def, cb)
     knob.Parent = track
     corner(knob,7)
 
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,0,0,20)
-    btn.Position = UDim2.new(0,0,0,22)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.Parent = f
-
     local dragging = false
-    btn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    
+    local function updateSlider(rel)
+        rel = math.clamp(rel, 0, 1)
+        local val = min + rel * (max - min)
+        if max <= 1 then val = math.floor(val * 100) / 100
+        else val = math.floor(val) end
+        valLbl.Text = tostring(val)
+        fill.Size = UDim2.new(rel,0,1,0)
+        knob.Position = UDim2.new(rel,-7,0.5,-7)
+        if cb then cb(val) end
+    end
+    
+    -- Click on track to set value
+    track.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            local rel = (i.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X
+            updateSlider(rel)
+        end
     end)
-    btn.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    
+    track.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    -- Drag knob
+    knob.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    
+    knob.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
     end)
 
     addConn(uis.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
             local rel = (i.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X
-            rel = math.clamp(rel, 0, 1)
-            local val = min + rel * (max - min)
-            if max <= 1 then val = math.floor(val * 100) / 100
-            else val = math.floor(val) end
-            valLbl.Text = tostring(val)
-            fill.Size = UDim2.new(rel,0,1,0)
-            knob.Position = UDim2.new(rel,-7,0.5,-7)
-            if cb then cb(val) end
+            updateSlider(rel)
         end
     end), "slider_"..txt)
 
-    return f
+    return f, function(newVal)
+        local rel = (newVal - min) / (max - min)
+        rel = math.clamp(rel, 0, 1)
+        valLbl.Text = tostring(newVal)
+        fill.Size = UDim2.new(rel,0,1,0)
+        knob.Position = UDim2.new(rel,-7,0.5,-7)
+    end
 end
 
 local function mkInput(p, lbl, ph, def, multi, cb)
     local f = Instance.new("Frame")
     f.Size = multi and UDim2.new(1,0,0,130) or UDim2.new(1,0,0,60)
     f.BackgroundTransparency = 1
+    f.LayoutOrder = getNextOrder(p.Name)
     f.Parent = p
 
     local l = Instance.new("TextLabel")
@@ -737,6 +786,7 @@ local function mkDropdown(p, lbl, opts, def, cb)
     f.Size = UDim2.new(1,0,0,60)
     f.BackgroundTransparency = 1
     f.ClipsDescendants = false
+    f.LayoutOrder = getNextOrder(p.Name)
     f.Parent = p
 
     local l = Instance.new("TextLabel")
@@ -812,6 +862,7 @@ local function mkBtn(p, txt, cb)
     btn.TextColor3 = clr.txt
     btn.TextSize = 13
     btn.Font = Enum.Font.GothamSemibold
+    btn.LayoutOrder = getNextOrder(p.Name)
     btn.Parent = p
     corner(btn,6)
     grad(btn, clr.mainL, clr.main, 90)
@@ -829,8 +880,69 @@ local function mkLabel(p, txt, muted)
     l.TextSize = 12
     l.Font = Enum.Font.GothamBold
     l.TextXAlignment = Enum.TextXAlignment.Left
+    l.LayoutOrder = getNextOrder(p.Name)
     l.Parent = p
     return l
+end
+
+-- Create number input with textbox
+local function mkNumberInput(p, lbl, def, minVal, maxVal, cb)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1,0,0,60)
+    f.BackgroundTransparency = 1
+    f.LayoutOrder = getNextOrder(p.Name)
+    f.Parent = p
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-80,0,18)
+    l.BackgroundTransparency = 1
+    l.Text = lbl
+    l.TextColor3 = clr.txt
+    l.TextSize = 13
+    l.Font = Enum.Font.GothamSemibold
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = f
+
+    local inp = Instance.new("TextBox")
+    inp.Size = UDim2.new(0,70,0,32)
+    inp.Position = UDim2.new(1,-70,0,22)
+    inp.BackgroundColor3 = clr.surfL
+    inp.Text = tostring(def)
+    inp.PlaceholderText = "0"
+    inp.TextColor3 = clr.txt
+    inp.PlaceholderColor3 = clr.txtM
+    inp.TextSize = 13
+    inp.Font = Enum.Font.GothamBold
+    inp.ClearTextOnFocus = true
+    inp.Parent = f
+    corner(inp,6)
+    stroke(inp, clr.main, 1).Transparency = 0.8
+    
+    local descLbl = Instance.new("TextLabel")
+    descLbl.Size = UDim2.new(1,-80,0,14)
+    descLbl.Position = UDim2.new(0,0,0,22)
+    descLbl.BackgroundTransparency = 1
+    descLbl.Text = minVal and maxVal and string.format("(%d - %d)", minVal, maxVal) or "(0 = unlimited)"
+    descLbl.TextColor3 = clr.txtM
+    descLbl.TextSize = 10
+    descLbl.Font = Enum.Font.Gotham
+    descLbl.TextXAlignment = Enum.TextXAlignment.Left
+    descLbl.Parent = f
+
+    inp.FocusLost:Connect(function()
+        local num = tonumber(inp.Text)
+        if num then
+            if minVal then num = math.max(minVal, num) end
+            if maxVal then num = math.min(maxVal, num) end
+            num = math.floor(num)
+            inp.Text = tostring(num)
+            if cb then cb(num) end
+        else
+            inp.Text = tostring(def)
+        end
+    end)
+
+    return f, inp
 end
 
 -- home tab
@@ -927,9 +1039,20 @@ end
 
 mkLabel(settTab, "Range Settings", true)
 
-mkSlider(settTab, "Response Range (0=unlimited)", 0, 200, getgenv().MapleConfig.Range, function(v)
+-- Range slider with linked textbox
+local rangeSlider, updateRangeSlider = mkSlider(settTab, "Response Range (studs)", 0, 500, getgenv().MapleConfig.Range, function(v)
     getgenv().MapleConfig.Range = v
     save()
+end)
+
+local _, rangeInput = mkNumberInput(settTab, "Custom Range Value", getgenv().MapleConfig.Range, 0, 10000, function(v)
+    getgenv().MapleConfig.Range = v
+    -- Update slider visual if value is within slider range
+    if v <= 500 then
+        updateRangeSlider(v)
+    end
+    save()
+    toast("Range set to " .. (v == 0 and "unlimited" or (v .. " studs")), "info")
 end)
 
 mkLabel(settTab, "Trigger Mode", true)
@@ -1100,7 +1223,7 @@ for _, pre in ipairs(presets) do
 end
 
 -- models tab
-mkLabel(modTab, "Select Model", true)
+mkLabel(modTab, "Preset Models", true)
 
 local models = {
     {id="gpt-4", n="GPT-4", d="Most capable"},
@@ -1109,12 +1232,17 @@ local models = {
     {id="maple-light", n="Maple Light", d="Lightweight"}
 }
 
-for _, m in ipairs(models) do
+local modelFrames = {}
+
+for idx, m in ipairs(models) do
     local mf = Instance.new("Frame")
+    mf.Name = "model_"..m.id
     mf.Size = UDim2.new(1,0,0,45)
     mf.BackgroundColor3 = getgenv().MapleConfig.Model == m.id and clr.main or clr.surfL
+    mf.LayoutOrder = getNextOrder(modTab.Name)
     mf.Parent = modTab
     corner(mf,6)
+    modelFrames[m.id] = mf
     
     local mn = Instance.new("TextLabel")
     mn.Size = UDim2.new(1,-15,0,18)
@@ -1148,10 +1276,15 @@ for _, m in ipairs(models) do
         getgenv().MapleConfig.Model = m.id
         save()
         toast("Model: "..m.n, "success")
-        for _, c in ipairs(modTab:GetChildren()) do
-            if c:IsA("Frame") then c.BackgroundColor3 = clr.surfL end
+        -- Update all model frames
+        for id, frame in pairs(modelFrames) do
+            frame.BackgroundColor3 = clr.surfL
         end
         mf.BackgroundColor3 = clr.main
+        -- Clear custom model highlight
+        if customModelFrame then
+            customModelFrame.BackgroundColor3 = clr.surfL
+        end
     end)
     
     sb.MouseEnter:Connect(function()
@@ -1162,10 +1295,187 @@ for _, m in ipairs(models) do
     end)
 end
 
+-- Custom model input section
+mkLabel(modTab, "Custom Model ID", true)
+
+local customModelFrame = Instance.new("Frame")
+customModelFrame.Size = UDim2.new(1,0,0,90)
+customModelFrame.BackgroundColor3 = clr.surfL
+customModelFrame.LayoutOrder = getNextOrder(modTab.Name)
+customModelFrame.Parent = modTab
+corner(customModelFrame,6)
+
+-- Check if current model is custom
+local isCustomModel = true
+for _, m in ipairs(models) do
+    if m.id == getgenv().MapleConfig.Model then
+        isCustomModel = false
+        break
+    end
+end
+if isCustomModel and getgenv().MapleConfig.Model ~= "" then
+    customModelFrame.BackgroundColor3 = clr.main
+end
+
+local customModelLbl = Instance.new("TextLabel")
+customModelLbl.Size = UDim2.new(1,-15,0,18)
+customModelLbl.Position = UDim2.new(0,10,0,6)
+customModelLbl.BackgroundTransparency = 1
+customModelLbl.Text = "Enter Model ID"
+customModelLbl.TextColor3 = clr.txt
+customModelLbl.TextSize = 13
+customModelLbl.Font = Enum.Font.GothamBold
+customModelLbl.TextXAlignment = Enum.TextXAlignment.Left
+customModelLbl.Parent = customModelFrame
+
+local customModelDesc = Instance.new("TextLabel")
+customModelDesc.Size = UDim2.new(1,-15,0,14)
+customModelDesc.Position = UDim2.new(0,10,0,24)
+customModelDesc.BackgroundTransparency = 1
+customModelDesc.Text = "Type any valid model ID and press Enter to validate"
+customModelDesc.TextColor3 = clr.txtM
+customModelDesc.TextSize = 10
+customModelDesc.Font = Enum.Font.Gotham
+customModelDesc.TextXAlignment = Enum.TextXAlignment.Left
+customModelDesc.Parent = customModelFrame
+
+local customModelInput = Instance.new("TextBox")
+customModelInput.Size = UDim2.new(1,-20,0,28)
+customModelInput.Position = UDim2.new(0,10,0,45)
+customModelInput.BackgroundColor3 = clr.bg
+customModelInput.Text = isCustomModel and getgenv().MapleConfig.Model or ""
+customModelInput.PlaceholderText = "e.g., gpt-4-turbo-preview, claude-3-opus..."
+customModelInput.TextColor3 = clr.txt
+customModelInput.PlaceholderColor3 = clr.txtM
+customModelInput.TextSize = 12
+customModelInput.Font = Enum.Font.Gotham
+customModelInput.ClearTextOnFocus = false
+customModelInput.Parent = customModelFrame
+corner(customModelInput,4)
+
+local customModelStatus = Instance.new("TextLabel")
+customModelStatus.Size = UDim2.new(1,-15,0,14)
+customModelStatus.Position = UDim2.new(0,10,0,75)
+customModelStatus.BackgroundTransparency = 1
+customModelStatus.Text = ""
+customModelStatus.TextColor3 = clr.txtM
+customModelStatus.TextSize = 10
+customModelStatus.Font = Enum.Font.Gotham
+customModelStatus.TextXAlignment = Enum.TextXAlignment.Left
+customModelStatus.Parent = customModelFrame
+
+-- Validate custom model by making a test request
+local function validateAndSetModel(modelId)
+    if not modelId or modelId == "" then
+        customModelStatus.Text = "Please enter a model ID"
+        customModelStatus.TextColor3 = clr.warn
+        return
+    end
+    
+    -- Basic format validation
+    modelId = modelId:gsub("^%s*(.-)%s*$", "%1") -- trim
+    
+    if #modelId < 3 then
+        customModelStatus.Text = "Model ID too short"
+        customModelStatus.TextColor3 = clr.bad
+        return
+    end
+    
+    if modelId:match("[^%w%-_%.%/]") then
+        customModelStatus.Text = "Invalid characters in model ID"
+        customModelStatus.TextColor3 = clr.bad
+        return
+    end
+    
+    customModelStatus.Text = "Validating..."
+    customModelStatus.TextColor3 = clr.warn
+    
+    -- Test the model with a simple request
+    task.spawn(function()
+        local cfg = getgenv().MapleConfig
+        if not req or cfg.APIKey == "" then
+            -- Can't validate without API, just accept it
+            getgenv().MapleConfig.Model = modelId
+            save()
+            customModelStatus.Text = "✓ Model set (not validated - no API key)"
+            customModelStatus.TextColor3 = clr.warn
+            -- Update UI
+            for id, frame in pairs(modelFrames) do
+                frame.BackgroundColor3 = clr.surfL
+            end
+            customModelFrame.BackgroundColor3 = clr.main
+            toast("Model set to: " .. modelId, "info")
+            return
+        end
+        
+        local testPayload = {
+            model = modelId,
+            max_tokens = 5,
+            messages = {{role = "user", content = "test"}}
+        }
+        
+        local s, r = pcall(function()
+            return req({
+                Url = "https://api.mapleai.de/v1/chat/completions",
+                Method = "POST",
+                Headers = {["Content-Type"]="application/json", ["Authorization"]="Bearer "..cfg.APIKey},
+                Body = http:JSONEncode(testPayload)
+            })
+        end)
+        
+        if s and r and r.Body then
+            local ok, dec = pcall(function() return http:JSONDecode(r.Body) end)
+            if ok and dec then
+                if dec.error then
+                    local errMsg = dec.error.message or "Unknown error"
+                    if errMsg:lower():find("model") or errMsg:lower():find("not found") or errMsg:lower():find("invalid") then
+                        customModelStatus.Text = "✗ Invalid model: " .. errMsg:sub(1,40)
+                        customModelStatus.TextColor3 = clr.bad
+                        return
+                    end
+                end
+                -- Model is valid (or at least didn't fail due to model issue)
+                getgenv().MapleConfig.Model = modelId
+                save()
+                customModelStatus.Text = "✓ Model validated and set!"
+                customModelStatus.TextColor3 = clr.good
+                -- Update UI
+                for id, frame in pairs(modelFrames) do
+                    frame.BackgroundColor3 = clr.surfL
+                end
+                customModelFrame.BackgroundColor3 = clr.main
+                toast("Model: " .. modelId, "success")
+            else
+                customModelStatus.Text = "✗ Failed to parse response"
+                customModelStatus.TextColor3 = clr.bad
+            end
+        else
+            customModelStatus.Text = "✗ Request failed - model may still work"
+            customModelStatus.TextColor3 = clr.warn
+            -- Set anyway since API might just be down
+            getgenv().MapleConfig.Model = modelId
+            save()
+            for id, frame in pairs(modelFrames) do
+                frame.BackgroundColor3 = clr.surfL
+            end
+            customModelFrame.BackgroundColor3 = clr.main
+        end
+    end)
+end
+
+customModelInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        validateAndSetModel(customModelInput.Text)
+    end
+end)
+
 -- blacklist tab
+mkLabel(blTab, "Add Player to Blacklist", true)
+
 local addFr = Instance.new("Frame")
 addFr.Size = UDim2.new(1,0,0,32)
 addFr.BackgroundTransparency = 1
+addFr.LayoutOrder = getNextOrder(blTab.Name)
 addFr.Parent = blTab
 
 local plrInp = Instance.new("TextBox")
@@ -1193,9 +1503,12 @@ addBtn.Parent = addFr
 corner(addBtn,6)
 hover(addBtn, clr.main, clr.mainL)
 
+mkLabel(blTab, "Blacklisted Players", true)
+
 local blScroll = Instance.new("Frame")
 blScroll.Size = UDim2.new(1,0,0,200)
 blScroll.BackgroundTransparency = 1
+blScroll.LayoutOrder = getNextOrder(blTab.Name)
 blScroll.Parent = blTab
 
 local blLay = Instance.new("UIListLayout")
@@ -1272,12 +1585,15 @@ end)
 refreshBl()
 
 -- stats tab
+mkLabel(statTab, "Session Statistics", true)
+
 local sData = {msgs=0, resp=0, errs=0}
 
 local function mkStatRow(nm, val)
     local r = Instance.new("Frame")
     r.Size = UDim2.new(1,0,0,35)
     r.BackgroundColor3 = clr.surfL
+    r.LayoutOrder = getNextOrder(statTab.Name)
     r.Parent = statTab
     corner(r,6)
     
@@ -1351,13 +1667,13 @@ end)
 
 -- window toggle
 local isMin = false
-local origSz = UDim2.new(0,600,0,480)
+local origSz = UDim2.new(0.85, 0, 0.85, 0) -- responsive size
 
 togBtnObj.MouseButton1Click:Connect(function()
     if not dragMv then
         win.Visible = not win.Visible
         if win.Visible then
-            win.Size = UDim2.new(0,600,0,0)
+            win.Size = UDim2.new(0.85, 0, 0, 0)
             tween(win, {Size=origSz}, 0.3, Enum.EasingStyle.Back)
         end
     end
@@ -1367,7 +1683,7 @@ end)
 minBtn.MouseButton1Click:Connect(function()
     isMin = not isMin
     if isMin then
-        tween(win, {Size=UDim2.new(0,600,0,45)}, 0.3)
+        tween(win, {Size=UDim2.new(0.85, 0, 0, 45)}, 0.3)
         minBtn.Text = "+"
     else
         tween(win, {Size=origSz}, 0.3)
@@ -1376,7 +1692,7 @@ minBtn.MouseButton1Click:Connect(function()
 end)
 
 closeBtn.MouseButton1Click:Connect(function()
-    tween(win, {Size=UDim2.new(0,600,0,0)}, 0.2)
+    tween(win, {Size=UDim2.new(0.85, 0, 0, 0)}, 0.2)
     task.wait(0.2)
     win.Visible = false
 end)
@@ -1908,11 +2224,11 @@ addConn(uis.InputBegan:Connect(function(i, gp)
     if i.KeyCode == Enum.KeyCode.RightControl or i.KeyCode == Enum.KeyCode.F9 then
         win.Visible = not win.Visible
         if win.Visible then
-            win.Size = UDim2.new(0,600,0,0)
+            win.Size = UDim2.new(0.85, 0, 0, 0)
             tween(win, {Size=origSz}, 0.3, Enum.EasingStyle.Back)
         end
     end
 end), "keybind")
 
-log("loaded v4 - context-aware")
-toast("Maple AI v4 loaded! Context-aware mode enabled.", "success", 3)
+log("loaded v4.1 - UI improvements")
+toast("Maple AI v4.1 loaded!", "success", 3)
