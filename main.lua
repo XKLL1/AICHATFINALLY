@@ -1,4 +1,4 @@
--- maple ai chatbot thing v3
+-- maple ai chatbot thing v4 - Context-Aware Edition
 
 local ts = game:GetService("TweenService")
 local uis = game:GetService("UserInputService")
@@ -19,23 +19,26 @@ local defCfg = {
     Blacklist = {},
     Whitelist = {},
     DebugMode = false,
-    -- new settings
+    -- core settings
     Range = 0, -- 0 = unlimited, otherwise studs
     TriggerMode = "all", -- "all", "mention", "prefix"
     TriggerPrefix = "@maple",
     ResponseDelay = 0, -- seconds to wait before responding (typing sim)
-    MaxTokens = 150,
+    MaxTokens = 200,
     Temperature = 0.7,
     AFKMode = false,
     AFKMessage = "I'm currently AFK, I'll respond when I'm back!",
-    StreamMessages = true, -- split long msgs
-    StreamDelay = 0.5, -- delay between streamed msgs
     AutoWhitelistFriends = false,
     AntiSpam = true,
     SpamThreshold = 3, -- same msg X times = spam
-    PerPlayerMemory = true, -- separate chat history per player
-    MemoryLimit = 50, -- msgs per player
     PrioritizeFriends = false,
+    -- context-aware settings
+    ContextTimeoutMinutes = 5, -- after X minutes, AI considers it might be new topic
+    LongGapMinutes = 15, -- after X minutes, almost certainly new conversation
+    ContextWindowSize = 20, -- how many recent msgs to send to AI for context
+    SmartContextEnabled = true, -- enable intelligent context analysis
+    ShowTimestamps = true, -- include timestamps in context for AI
+    RememberForever = true, -- unlimited memory (no limit on stored messages)
 }
 
 getgenv().MapleConfig = {}
@@ -107,7 +110,8 @@ local perfStats = {
     avgResponseTime = 0,
     totalRequests = 0,
     cachedResponses = 0,
-    queuedMsgs = 0
+    queuedMsgs = 0,
+    contextSwitches = 0
 }
 
 -- response cache for similar messages
@@ -115,7 +119,13 @@ local respCache = {}
 local cacheMaxSize = 50
 local cacheHitWindow = 300 -- 5 min
 
--- per-player memory
+-- per-player memory with full conversation history
+-- Structure: playerMemory[plrId] = {
+--   messages = {{role="user/assistant", content="...", timestamp=tick(), displayName="..."}},
+--   lastTopic = "topic summary",
+--   lastInteraction = tick(),
+--   contextSummary = "ongoing context"
+-- }
 local playerMemory = {}
 
 -- spam detection
@@ -128,6 +138,26 @@ local processing = false
 -- friends cache
 local friendsCache = {}
 local friendsCacheTime = 0
+
+-- context analysis helpers
+local function formatTimeAgo(seconds)
+    if seconds < 60 then
+        return string.format("%d seconds ago", math.floor(seconds))
+    elseif seconds < 3600 then
+        local mins = math.floor(seconds / 60)
+        return string.format("%d minute%s ago", mins, mins == 1 and "" or "s")
+    elseif seconds < 86400 then
+        local hours = math.floor(seconds / 3600)
+        return string.format("%d hour%s ago", hours, hours == 1 and "" or "s")
+    else
+        local days = math.floor(seconds / 86400)
+        return string.format("%d day%s ago", days, days == 1 and "" or "s")
+    end
+end
+
+local function getTimeDiffMinutes(t1, t2)
+    return math.abs(t2 - t1) / 60
+end
 
 local lib = {}
 local gui = Instance.new("ScreenGui")
@@ -368,7 +398,7 @@ local verLbl = Instance.new("TextLabel")
 verLbl.Size = UDim2.new(0,50,0,20)
 verLbl.Position = UDim2.new(0,130,0.5,-10)
 verLbl.BackgroundTransparency = 1
-verLbl.Text = "v3.0"
+verLbl.Text = "v4.0"
 verLbl.TextColor3 = clr.txtM
 verLbl.TextSize = 12
 verLbl.Font = Enum.Font.Gotham
@@ -511,10 +541,11 @@ end
 local homeTab = makeTab("Home", "🏠", 1)
 local settTab = makeTab("Settings", "⚙️", 2)
 local advTab = makeTab("Advanced", "🔧", 3)
-local persTab = makeTab("Persona", "🎭", 4)
-local modTab = makeTab("Models", "🤖", 5)
-local blTab = makeTab("Blacklist", "🚫", 6)
-local statTab = makeTab("Stats", "📊", 7)
+local ctxTab = makeTab("Context", "🧠", 4)
+local persTab = makeTab("Persona", "🎭", 5)
+local modTab = makeTab("Models", "🤖", 6)
+local blTab = makeTab("Blacklist", "🚫", 7)
+local statTab = makeTab("Stats", "📊", 8)
 
 local function mkToggle(p, txt, def, cb)
     local f = Instance.new("Frame")
@@ -938,30 +969,6 @@ mkSlider(advTab, "Response Delay (sec)", 0, 5, getgenv().MapleConfig.ResponseDel
     save()
 end)
 
-mkLabel(advTab, "Message Handling", true)
-
-mkToggle(advTab, "Stream Long Messages", getgenv().MapleConfig.StreamMessages, function(v)
-    getgenv().MapleConfig.StreamMessages = v
-    save()
-end)
-
-mkSlider(advTab, "Stream Delay", 0.1, 2, getgenv().MapleConfig.StreamDelay, function(v)
-    getgenv().MapleConfig.StreamDelay = v
-    save()
-end)
-
-mkLabel(advTab, "Memory Settings", true)
-
-mkToggle(advTab, "Per-Player Memory", getgenv().MapleConfig.PerPlayerMemory, function(v)
-    getgenv().MapleConfig.PerPlayerMemory = v
-    save()
-end)
-
-mkSlider(advTab, "Memory Limit", 5, 50, getgenv().MapleConfig.MemoryLimit, function(v)
-    getgenv().MapleConfig.MemoryLimit = v
-    save()
-end)
-
 mkLabel(advTab, "Anti-Spam", true)
 
 mkToggle(advTab, "Enable Anti-Spam", getgenv().MapleConfig.AntiSpam, function(v)
@@ -997,6 +1004,62 @@ mkBtn(advTab, "Reset to Defaults", function()
     for k,v in pairs(defCfg) do getgenv().MapleConfig[k] = v end
     save()
     toast("Reset done", "warning")
+end)
+
+-- context tab (new)
+mkLabel(ctxTab, "Context-Aware AI Settings", true)
+
+mkToggle(ctxTab, "Smart Context Analysis", getgenv().MapleConfig.SmartContextEnabled, function(v)
+    getgenv().MapleConfig.SmartContextEnabled = v
+    save()
+    toast(v and "Smart context ON" or "Smart context OFF", "info")
+end)
+
+mkToggle(ctxTab, "Show Timestamps to AI", getgenv().MapleConfig.ShowTimestamps, function(v)
+    getgenv().MapleConfig.ShowTimestamps = v
+    save()
+end)
+
+mkToggle(ctxTab, "Unlimited Memory", getgenv().MapleConfig.RememberForever, function(v)
+    getgenv().MapleConfig.RememberForever = v
+    save()
+    toast(v and "Unlimited memory ON" or "Limited memory", "info")
+end)
+
+mkLabel(ctxTab, "Timing Thresholds", true)
+
+mkSlider(ctxTab, "Context Timeout (min)", 1, 30, getgenv().MapleConfig.ContextTimeoutMinutes, function(v)
+    getgenv().MapleConfig.ContextTimeoutMinutes = v
+    save()
+end)
+
+mkSlider(ctxTab, "Long Gap (min)", 5, 60, getgenv().MapleConfig.LongGapMinutes, function(v)
+    getgenv().MapleConfig.LongGapMinutes = v
+    save()
+end)
+
+mkSlider(ctxTab, "Context Window Size", 5, 50, getgenv().MapleConfig.ContextWindowSize, function(v)
+    getgenv().MapleConfig.ContextWindowSize = v
+    save()
+end)
+
+mkLabel(ctxTab, "Memory Management", true)
+
+mkBtn(ctxTab, "Clear All Player Memory", function()
+    playerMemory = {}
+    toast("All player memory cleared", "success")
+end)
+
+mkBtn(ctxTab, "View Memory Stats", function()
+    local totalMsgs = 0
+    local playerCount = 0
+    for plrId, data in pairs(playerMemory) do
+        playerCount = playerCount + 1
+        if data.messages then
+            totalMsgs = totalMsgs + #data.messages
+        end
+    end
+    toast(string.format("%d players, %d total messages", playerCount, totalMsgs), "info", 4)
 end)
 
 -- persona tab
@@ -1250,6 +1313,7 @@ local _, errsLbl = mkStatRow("Errors", 0)
 local _, cacheLbl = mkStatRow("Cache Hits", 0)
 local _, queueLbl = mkStatRow("Queue Size", 0)
 local _, avgTimeLbl = mkStatRow("Avg Response Time", "0ms")
+local _, ctxSwitchLbl = mkStatRow("Context Switches", 0)
 local _, uptLbl = mkStatRow("Uptime", "0s")
 local _, histLbl = mkStatRow("Memory Usage", 0)
 
@@ -1266,9 +1330,16 @@ task.spawn(function()
         elseif m > 0 then uptLbl.Text = string.format("%dm %ds", m, s)
         else uptLbl.Text = string.format("%ds", s) end
         
-        local totalMem = #(chatHistory or {})
-        for _,v in pairs(playerMemory) do totalMem = totalMem + #v end
-        histLbl.Text = tostring(totalMem).." msgs"
+        local totalMem = 0
+        local playerCount = 0
+        for _, data in pairs(playerMemory) do
+            playerCount = playerCount + 1
+            if data.messages then
+                totalMem = totalMem + #data.messages
+            end
+        end
+        histLbl.Text = string.format("%d msgs / %d players", totalMem, playerCount)
+        ctxSwitchLbl.Text = tostring(perfStats.contextSwitches)
         
         queueLbl.Text = tostring(#reqQueue)
         cacheLbl.Text = tostring(perfStats.cachedResponses)
@@ -1346,29 +1417,14 @@ local function say(msg)
     return ok
 end
 
-local function streamMsg(msg)
-    local cfg = getgenv().MapleConfig
-    if not cfg.StreamMessages or #msg <= maxMsg then
-        say(msg)
-        return
+-- No streaming - send single message to avoid spam
+local function sendResponse(msg)
+    if not msg or msg == "" then return end
+    -- Truncate if too long, no streaming to prevent spam
+    if #msg > maxMsg then
+        msg = msg:sub(1, maxMsg - 3) .. "..."
     end
-    
-    local parts = {}
-    local cur = ""
-    for word in msg:gmatch("%S+") do
-        if #cur + #word + 1 > maxMsg - 10 then
-            table.insert(parts, cur)
-            cur = word
-        else
-            cur = cur == "" and word or cur.." "..word
-        end
-    end
-    if cur ~= "" then table.insert(parts, cur) end
-    
-    for i, part in ipairs(parts) do
-        if i > 1 then task.wait(cfg.StreamDelay) end
-        say(part)
-    end
+    say(msg)
 end
 
 local function face(char)
@@ -1509,22 +1565,152 @@ local function regTrigger()
     if #triggers >= cdCount and not inCd then task.spawn(activateCd) end
 end
 
-chatHistory = {}
-
-local function getMemory(plrId)
-    local cfg = getgenv().MapleConfig
-    if cfg.PerPlayerMemory then
-        if not playerMemory[plrId] then playerMemory[plrId] = {} end
-        while #playerMemory[plrId] > cfg.MemoryLimit do
-            table.remove(playerMemory[plrId], 1)
-        end
-        return playerMemory[plrId]
-    else
-        while #chatHistory > cfg.MemoryLimit do
-            table.remove(chatHistory, 1)
-        end
-        return chatHistory
+-- Initialize player memory structure
+local function initPlayerMemory(plrId, displayName)
+    if not playerMemory[plrId] then
+        playerMemory[plrId] = {
+            messages = {},
+            lastTopic = nil,
+            lastInteraction = 0,
+            contextSummary = nil,
+            displayName = displayName or "Unknown"
+        }
     end
+    return playerMemory[plrId]
+end
+
+-- Get context-aware memory for a player
+local function getPlayerContext(plrId, displayName)
+    local cfg = getgenv().MapleConfig
+    local mem = initPlayerMemory(plrId, displayName)
+    local now = tick()
+    
+    -- Calculate time since last interaction
+    local timeSinceLast = mem.lastInteraction > 0 and (now - mem.lastInteraction) or 0
+    local timeSinceMinutes = timeSinceLast / 60
+    
+    -- Determine context state
+    local contextState = "continuing" -- default: same conversation
+    if mem.lastInteraction == 0 then
+        contextState = "new_player" -- first time talking
+    elseif timeSinceMinutes > cfg.LongGapMinutes then
+        contextState = "long_gap" -- very likely new topic
+        perfStats.contextSwitches = perfStats.contextSwitches + 1
+    elseif timeSinceMinutes > cfg.ContextTimeoutMinutes then
+        contextState = "possible_new_topic" -- might be new topic
+    end
+    
+    return mem, contextState, timeSinceLast, timeSinceMinutes
+end
+
+-- Build context-aware message history for AI
+local function buildContextMessages(plrId, displayName, newUserMsg)
+    local cfg = getgenv().MapleConfig
+    local mem, contextState, timeSinceLast, timeSinceMinutes = getPlayerContext(plrId, displayName)
+    local now = tick()
+    
+    -- Prepare context window
+    local contextWindow = {}
+    local messages = mem.messages or {}
+    local windowSize = cfg.ContextWindowSize
+    
+    -- Get recent messages for context (within window size)
+    local startIdx = math.max(1, #messages - windowSize + 1)
+    for i = startIdx, #messages do
+        local msg = messages[i]
+        if msg then
+            local entry = {
+                role = msg.role,
+                content = msg.content
+            }
+            -- Add timestamp info if enabled
+            if cfg.ShowTimestamps and msg.timestamp then
+                local timeAgo = formatTimeAgo(now - msg.timestamp)
+                if msg.role == "user" then
+                    entry.content = string.format("[%s, %s]: %s", msg.displayName or displayName, timeAgo, msg.content)
+                else
+                    entry.content = string.format("[You replied %s]: %s", timeAgo, msg.content)
+                end
+            end
+            table.insert(contextWindow, entry)
+        end
+    end
+    
+    return contextWindow, contextState, timeSinceMinutes, mem
+end
+
+-- Build enhanced system prompt with context awareness
+local function buildSystemPrompt(displayName, contextState, timeSinceMinutes, playerMemData)
+    local cfg = getgenv().MapleConfig
+    local basePersona = cfg.Persona
+    
+    local contextInstructions = [[
+
+=== CONTEXT AWARENESS INSTRUCTIONS ===
+You are having a conversation in a Roblox game chat. You must be context-aware:
+
+1. TIMING ANALYSIS: Pay attention to timestamps in messages. If someone hasn't talked for a while and comes back:
+   - Short gap (< 5 min): Probably continuing same topic
+   - Medium gap (5-15 min): Might be same topic or new one - use judgment based on message content
+   - Long gap (15+ min): Likely starting fresh topic unless they reference previous conversation
+
+2. CONTEXT CONTINUITY:
+   - If their new message clearly relates to previous discussion, continue that context
+   - If their message seems unrelated or starts fresh, treat it as new conversation
+   - If unsure, you can briefly acknowledge the gap ("Oh hey, back again!")
+
+3. REASONING ABOUT CONTEXT:
+   - Consider: Does this message make sense as a continuation?
+   - Consider: Are they referencing something we discussed before?
+   - Consider: Does the tone/topic suggest they're starting fresh?
+
+4. RESPONSE GUIDELINES:
+   - Keep responses concise (Roblox chat has limits)
+   - Be natural and conversational
+   - Don't explicitly mention "context switching" to the user
+   - Just naturally adapt to whether it's a continuation or new topic
+
+]]
+
+    local currentContextInfo = ""
+    if cfg.SmartContextEnabled then
+        if contextState == "new_player" then
+            currentContextInfo = string.format("\n[CONTEXT: This is %s's first message to you. Start fresh.]\n", displayName)
+        elseif contextState == "long_gap" then
+            currentContextInfo = string.format("\n[CONTEXT: %s last spoke %.1f minutes ago. Very likely a new topic unless they reference previous conversation.]\n", displayName, timeSinceMinutes)
+        elseif contextState == "possible_new_topic" then
+            currentContextInfo = string.format("\n[CONTEXT: %s last spoke %.1f minutes ago. They might be continuing or starting new topic - analyze their message to determine.]\n", displayName, timeSinceMinutes)
+        else
+            currentContextInfo = string.format("\n[CONTEXT: %s is continuing the conversation (%.1f min since last message).]\n", displayName, timeSinceMinutes)
+        end
+        
+        -- Add previous topic hint if available
+        if playerMemData and playerMemData.lastTopic then
+            currentContextInfo = currentContextInfo .. string.format("[Previous topic: %s]\n", playerMemData.lastTopic)
+        end
+    end
+    
+    return basePersona .. contextInstructions .. currentContextInfo
+end
+
+-- Store message in player memory with timestamp
+local function storeMessage(plrId, displayName, role, content)
+    local mem = initPlayerMemory(plrId, displayName)
+    local now = tick()
+    
+    table.insert(mem.messages, {
+        role = role,
+        content = content,
+        timestamp = now,
+        displayName = displayName
+    })
+    
+    -- Update last interaction time
+    mem.lastInteraction = now
+    mem.displayName = displayName
+    
+    -- Note: No limit on messages when RememberForever is true
+    -- Messages are stored indefinitely per player
 end
 
 local function processQueue()
@@ -1552,30 +1738,42 @@ function handleAIInternal(msg, sender, plrId, char)
         return
     end
 
-    local cached = checkCache(msg)
-    if cached then
-        log("Cache hit!")
-        if cfg.ResponseDelay > 0 then task.wait(cfg.ResponseDelay) end
-        streamMsg(cached)
-        sData.resp = sData.resp + 1
-        respLbl.Text = tostring(sData.resp)
-        return
-    end
-
+    -- Note: Cache disabled for context-aware mode as responses depend on timing
+    -- Can re-enable for non-context-aware simple queries if needed
+    
     regTrigger()
     sData.msgs = sData.msgs + 1
     msgsLbl.Text = tostring(sData.msgs)
 
-    local mem = getMemory(plrId)
-    local ctx = sender and (sender..": "..msg) or msg
-    table.insert(mem, {role="user", content=ctx})
+    -- Build context-aware messages
+    local contextMessages, contextState, timeSinceMinutes, playerMemData = buildContextMessages(plrId, sender, msg)
+    
+    -- Store user message in memory
+    storeMessage(plrId, sender, "user", msg)
+    
+    -- Build enhanced system prompt with context awareness
+    local systemPrompt = buildSystemPrompt(sender, contextState, timeSinceMinutes, playerMemData)
+    
+    -- Prepare the message array for API
+    local apiMessages = {{role = "system", content = systemPrompt}}
+    
+    -- Add context window messages
+    for _, ctxMsg in ipairs(contextMessages) do
+        table.insert(apiMessages, ctxMsg)
+    end
+    
+    -- Add the new user message
+    table.insert(apiMessages, {role = "user", content = string.format("[%s, just now]: %s", sender, msg)})
 
     local payload = {
         model = cfg.Model,
         max_tokens = cfg.MaxTokens,
         temperature = cfg.Temperature,
-        messages = {{role="system", content=cfg.Persona}, unpack(mem)}
+        messages = apiMessages
     }
+
+    log("Context state:", contextState, "| Time since last:", string.format("%.1f min", timeSinceMinutes))
+    log("Sending", #apiMessages, "messages to API")
 
     local startT = tick()
     local res = nil
@@ -1607,21 +1805,37 @@ function handleAIInternal(msg, sender, plrId, char)
 
     local ok, dec = pcall(function() return http:JSONDecode(res.Body) end)
     if not ok then sData.errs = sData.errs + 1 errsLbl.Text = tostring(sData.errs) return end
-    if dec.error then sData.errs = sData.errs + 1 errsLbl.Text = tostring(sData.errs) return end
+    if dec.error then
+        sData.errs = sData.errs + 1
+        errsLbl.Text = tostring(sData.errs)
+        log("API error:", dec.error.message or "unknown")
+        return
+    end
     if not dec.choices or not dec.choices[1] then return end
 
     local reply = dec.choices[1].message and dec.choices[1].message.content
     if not reply or reply == "" then return end
 
-    table.insert(mem, {role="assistant", content=reply})
-    addToCache(msg, reply)
+    -- Store assistant reply in memory
+    storeMessage(plrId, sender, "assistant", reply)
+    
+    -- Try to extract topic hint from response for future context
+    -- (Simple heuristic - could be made smarter)
+    if #reply > 20 then
+        local mem = playerMemory[plrId]
+        if mem then
+            -- Store first part of reply as topic hint
+            mem.lastTopic = reply:sub(1, 50):gsub("\n", " ")
+        end
+    end
     
     sData.resp = sData.resp + 1
     respLbl.Text = tostring(sData.resp)
 
     if cfg.ResponseDelay > 0 then task.wait(cfg.ResponseDelay) end
     
-    streamMsg(reply)
+    -- Send single response (no streaming to prevent spam)
+    sendResponse(reply)
 end
 
 local function handleAI(msg, sender, plrId, char, priority)
@@ -1700,5 +1914,5 @@ addConn(uis.InputBegan:Connect(function(i, gp)
     end
 end), "keybind")
 
-log("loaded v3")
-toast("Maple AI v3 loaded!", "success", 2)
+log("loaded v4 - context-aware")
+toast("Maple AI v4 loaded! Context-aware mode enabled.", "success", 3)
