@@ -34,7 +34,7 @@ local defCfg = {
     AntiSpam = true,
     SpamThreshold = 3, -- same msg X times = spam
     PerPlayerMemory = true, -- separate chat history per player
-    MemoryLimit = 20, -- msgs per player
+    MemoryLimit = 50, -- msgs per player
     PrioritizeFriends = false,
 }
 
