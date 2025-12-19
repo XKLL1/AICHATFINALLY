@@ -1,4 +1,7 @@
 
+-- Wrap entire script for loadstring compatibility
+local success, errorMsg = pcall(function()
+
 --[[
     ╔══════════════════════════════════════════════════════════════════════════════╗
     ║          🍁 MAPLE AI CHATBOT v6.0 - ULTIMATE PREMIUM EDITION                 ║
@@ -3978,3 +3981,54 @@ print("║  • Enable AI in Home tab to start responding                       
 print("║  • Contact " .. string.format("%-20s", DISCORD_CONTACT) .. " for Premium access                      ║")
 print("╚══════════════════════════════════════════════════════════════════════════╝")
 print("\n")
+
+end) -- End of pcall wrapper
+
+-- Handle any errors that occurred during loading
+if not success then
+    warn("[🍁 Maple AI] Failed to load: " .. tostring(errorMsg))
+    -- Try to show error in game
+    pcall(function()
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "MapleAI_Error"
+        gui.Parent = game:GetService("CoreGui")
+        
+        local errorFrame = Instance.new("Frame")
+        errorFrame.Size = UDim2.new(0, 400, 0, 150)
+        errorFrame.Position = UDim2.new(0.5, -200, 0.5, -75)
+        errorFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        errorFrame.Parent = gui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = errorFrame
+        
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 40)
+        title.BackgroundTransparency = 1
+        title.Text = "🍁 Maple AI - Error"
+        title.TextColor3 = Color3.fromRGB(255, 100, 100)
+        title.TextSize = 18
+        title.Font = Enum.Font.GothamBold
+        title.Parent = errorFrame
+        
+        local errText = Instance.new("TextLabel")
+        errText.Size = UDim2.new(1, -20, 1, -50)
+        errText.Position = UDim2.new(0, 10, 0, 40)
+        errText.BackgroundTransparency = 1
+        errText.Text = tostring(errorMsg):sub(1, 200)
+        errText.TextColor3 = Color3.fromRGB(200, 200, 200)
+        errText.TextSize = 12
+        errText.Font = Enum.Font.Gotham
+        errText.TextWrapped = true
+        errText.TextYAlignment = Enum.TextYAlignment.Top
+        errText.Parent = errorFrame
+        
+        task.delay(10, function()
+            gui:Destroy()
+        end)
+    end)
+end
+
+-- Return success status for loadstring
+return success
