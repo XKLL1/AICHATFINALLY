@@ -2368,7 +2368,15 @@ minBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-tabButtons["Home"].MouseButton1Click:Fire()
+-- Manually activate Home tab (can't Fire() an RBXScriptSignal)
+currentTab = "Home"
+tabs["Home"].Visible = true
+tabButtons["Home"].BackgroundTransparency = 0.9
+tabButtons["Home"].BackgroundColor3 = clr.accent
+local homeLabel = tabButtons["Home"]:FindFirstChildWhichIsA("TextLabel")
+if homeLabel then
+    homeLabel.TextColor3 = clr.textPrimary
+end
 updateStatusDot()
 updateHomeStatus()
 
