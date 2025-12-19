@@ -63,7 +63,7 @@ local TIER_LIMITS = {
         canUseWebhooks = false,
         canChangeTheme = false,
         tierName = "FREE",
-        tierEmoji = "🆓",
+        tierEmoji = "[F]",
         tierColor = Color3.fromRGB(128, 128, 128),
         showLimitsInUI = true,
     },
@@ -100,7 +100,7 @@ local TIER_LIMITS = {
         canUseWebhooks = false,
         canChangeTheme = false,
         tierName = "VIP",
-        tierEmoji = "🔷",
+        tierEmoji = "[V]",
         tierColor = Color3.fromRGB(0, 191, 255),
         showLimitsInUI = true,
     },
@@ -137,7 +137,7 @@ local TIER_LIMITS = {
         canUseWebhooks = true,
         canChangeTheme = true,
         tierName = "PREMIUM",
-        tierEmoji = "👑",
+        tierEmoji = "[P]",
         tierColor = Color3.fromRGB(147, 112, 219),
         showLimitsInUI = true,
     },
@@ -174,7 +174,7 @@ local TIER_LIMITS = {
         canUseWebhooks = true,
         canChangeTheme = true,
         tierName = "ULTIMATE",
-        tierEmoji = "💎",
+        tierEmoji = "[U]",
         tierColor = Color3.fromRGB(255, 215, 0),
         showLimitsInUI = false,
     },
@@ -854,7 +854,7 @@ local modalIcon = Instance.new("TextLabel")
 modalIcon.Size = UDim2.new(1, 0, 0, 50)
 modalIcon.Position = UDim2.new(0, 0, 0, 15)
 modalIcon.BackgroundTransparency = 1
-modalIcon.Text = "👑"
+modalIcon.Text = "*"
 modalIcon.TextSize = 40
 modalIcon.Parent = premiumModal
 
