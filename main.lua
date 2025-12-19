@@ -1,25 +1,5 @@
 
--- Wrap entire script for loadstring compatibility
 local success, errorMsg = pcall(function()
-
---[[
-    ╔══════════════════════════════════════════════════════════════════════════════╗
-    ║          🍁 MAPLE AI CHATBOT v6.0 - ULTIMATE PREMIUM EDITION                 ║
-    ║                    The Most Advanced AI Chatbot for Roblox                   ║
-    ╠══════════════════════════════════════════════════════════════════════════════╣
-    ║  Features:                                                                    ║
-    ║  • Context-Aware Conversations    • Smart Memory System                       ║
-    ║  • Apple-Style UI                 • Premium Model Access                      ║
-    ║  • Anti-Spam Protection           • VIP Features                              ║
-    ║  • Multi-Executor Support         • Real-time Analytics                       ║
-    ╠══════════════════════════════════════════════════════════════════════════════╣
-    ║  Premium Features require VIP access. Contact @xkroblox on Discord           ║
-    ╚══════════════════════════════════════════════════════════════════════════════╝
-]]
-
--- ════════════════════════════════════════════════════════════════════════════════
--- SERVICES
--- ════════════════════════════════════════════════════════════════════════════════
 
 local ts = game:GetService("TweenService")
 local uis = game:GetService("UserInputService")
@@ -32,30 +12,18 @@ local marketPlace = game:GetService("MarketplaceService")
 
 local lp = plrs.LocalPlayer
 
--- ════════════════════════════════════════════════════════════════════════════════
--- VIP/PREMIUM SYSTEM
--- ════════════════════════════════════════════════════════════════════════════════
-
 local DISCORD_CONTACT = "@xkroblox"
 local SCRIPT_VERSION = "6.0.0"
 local BUILD_TYPE = "ULTIMATE"
 
--- SHARED API KEY (Your key that everyone uses - will be encrypted with moonsec)
-local SHARED_API_KEY = "YOUR_API_KEY_HERE" -- Put your actual API key here before obfuscating
+local SHARED_API_KEY = "YOUR_API_KEY_HERE"
 
--- VIP Whitelist (Roblox UserIDs)
 local VIP_USERIDS = {
-    -- Add VIP user IDs here
-    -- Example: 123456789,
 }
 
--- HWID Whitelist (for executor HWID)
 local VIP_HWIDS = {
-    -- Add VIP HWIDs here
-    -- Example: "HWID-XXXX-XXXX-XXXX",
 }
 
--- Premium tiers
 local TIERS = {
     FREE = 0,
     VIP = 1,
@@ -63,43 +31,29 @@ local TIERS = {
     ULTIMATE = 3,
 }
 
--- ════════════════════════════════════════════════════════════════════════════════
--- TIER LIMITS & RESTRICTIONS CONFIGURATION
--- This is where YOU control what each tier gets
--- ════════════════════════════════════════════════════════════════════════════════
-
 local TIER_LIMITS = {
-    [0] = { -- FREE
-        -- Rate Limiting
-        requestsPerMinute = 5,           -- Max API calls per minute
-        requestsPerHour = 30,            -- Max API calls per hour
-        requestsPerDay = 100,            -- Max API calls per day (resets at midnight)
-        
-        -- Response Settings
-        minResponseDelay = 2.0,          -- Minimum delay before responding (seconds)
-        maxResponseDelay = 10.0,         -- Maximum configurable delay
-        maxTokens = 100,                 -- Max tokens per response
-        maxTokensConfigurable = false,   -- Can they change max tokens?
-        temperatureConfigurable = false, -- Can they change temperature?
-        
-        -- Memory & Context
-        contextWindowSize = 5,           -- How many messages to remember
+    [0] = {
+        requestsPerMinute = 5,
+        requestsPerHour = 30,
+        requestsPerDay = 100,
+        minResponseDelay = 2.0,
+        maxResponseDelay = 10.0,
+        maxTokens = 100,
+        maxTokensConfigurable = false,
+        temperatureConfigurable = false,
+        contextWindowSize = 5,
         contextWindowConfigurable = false,
-        memoryExpireMinutes = 5,         -- Memory clears after X minutes
+        memoryExpireMinutes = 5,
         unlimitedMemory = false,
-        
-        -- Cache
         cacheEnabled = true,
         cacheSize = 50,
-        cacheTTL = 180,                  -- 3 minutes
-        
-        -- Features
-        canChangePersona = false,        -- Can customize AI personality?
-        canUsePresets = true,            -- Can use persona presets?
-        canChangeRange = true,           -- Can change response range?
-        canChangeTriggerMode = true,     -- Can change trigger mode?
-        canUseBlacklist = true,          -- Can blacklist players?
-        canUseWhitelist = false,         -- Can whitelist players?
+        cacheTTL = 180,
+        canChangePersona = false,
+        canUsePresets = true,
+        canChangeRange = true,
+        canChangeTriggerMode = true,
+        canUseBlacklist = true,
+        canUseWhitelist = false,
         canUseAFKMode = true,
         canUseAntiSpam = true,
         canChangeAntiSpamSettings = false,
@@ -108,36 +62,29 @@ local TIER_LIMITS = {
         canExportHistory = false,
         canUseWebhooks = false,
         canChangeTheme = false,
-        
-        -- Display
         tierName = "FREE",
         tierEmoji = "🆓",
         tierColor = Color3.fromRGB(128, 128, 128),
         showLimitsInUI = true,
     },
-    
-    [1] = { -- VIP
+    [1] = {
         requestsPerMinute = 15,
         requestsPerHour = 200,
         requestsPerDay = 500,
-        
         minResponseDelay = 1.0,
         maxResponseDelay = 10.0,
         maxTokens = 150,
         maxTokensConfigurable = true,
-        maxTokensMax = 200,              -- Max they can set it to
+        maxTokensMax = 200,
         temperatureConfigurable = true,
-        
         contextWindowSize = 15,
         contextWindowConfigurable = true,
         contextWindowMax = 20,
         memoryExpireMinutes = 30,
         unlimitedMemory = false,
-        
         cacheEnabled = true,
         cacheSize = 150,
         cacheTTL = 300,
-        
         canChangePersona = true,
         canUsePresets = true,
         canChangeRange = true,
@@ -152,35 +99,29 @@ local TIER_LIMITS = {
         canExportHistory = false,
         canUseWebhooks = false,
         canChangeTheme = false,
-        
         tierName = "VIP",
         tierEmoji = "🔷",
         tierColor = Color3.fromRGB(0, 191, 255),
         showLimitsInUI = true,
     },
-    
-    [2] = { -- PREMIUM
+    [2] = {
         requestsPerMinute = 30,
         requestsPerHour = 500,
         requestsPerDay = 2000,
-        
         minResponseDelay = 0.5,
         maxResponseDelay = 10.0,
         maxTokens = 300,
         maxTokensConfigurable = true,
         maxTokensMax = 400,
         temperatureConfigurable = true,
-        
         contextWindowSize = 30,
         contextWindowConfigurable = true,
         contextWindowMax = 50,
         memoryExpireMinutes = 120,
         unlimitedMemory = true,
-        
         cacheEnabled = true,
         cacheSize = 500,
         cacheTTL = 600,
-        
         canChangePersona = true,
         canUsePresets = true,
         canChangeRange = true,
@@ -195,35 +136,29 @@ local TIER_LIMITS = {
         canExportHistory = true,
         canUseWebhooks = true,
         canChangeTheme = true,
-        
         tierName = "PREMIUM",
         tierEmoji = "👑",
         tierColor = Color3.fromRGB(147, 112, 219),
         showLimitsInUI = true,
     },
-    
-    [3] = { -- ULTIMATE
+    [3] = {
         requestsPerMinute = 60,
         requestsPerHour = 1000,
         requestsPerDay = 9999,
-        
         minResponseDelay = 0.1,
         maxResponseDelay = 10.0,
         maxTokens = 500,
         maxTokensConfigurable = true,
         maxTokensMax = 1000,
         temperatureConfigurable = true,
-        
         contextWindowSize = 100,
         contextWindowConfigurable = true,
         contextWindowMax = 200,
         memoryExpireMinutes = 9999,
         unlimitedMemory = true,
-        
         cacheEnabled = true,
         cacheSize = 1000,
         cacheTTL = 1800,
-        
         canChangePersona = true,
         canUsePresets = true,
         canChangeRange = true,
@@ -238,76 +173,55 @@ local TIER_LIMITS = {
         canExportHistory = true,
         canUseWebhooks = true,
         canChangeTheme = true,
-        
         tierName = "ULTIMATE",
         tierEmoji = "💎",
         tierColor = Color3.fromRGB(255, 215, 0),
-        showLimitsInUI = false, -- Ultimate users don't need to see limits flex on em
+        showLimitsInUI = false,
     },
 }
 
--- Get HWID (executor-specific)
 local function getHWID()
     local hwid = nil
-    
     pcall(function()
-        -- Synapse X
         if syn and syn.cache_replace then
             hwid = syn.cache_replace(game, "HWID")
         end
     end)
-    
     pcall(function()
-        -- KRNL
         if KRNL_LOADED and gethwid then
             hwid = gethwid()
         end
     end)
-    
     pcall(function()
-        -- Fluxus
         if fluxus and fluxus.get_hwid then
             hwid = fluxus.get_hwid()
         end
     end)
-    
     pcall(function()
-        -- Script-Ware
         if getexecutorname and getexecutorname():find("Script") then
             if gethwid then hwid = gethwid() end
         end
     end)
-    
     pcall(function()
-        -- Generic fallback
         if gethwid then hwid = gethwid() end
         if not hwid and get_hwid then hwid = get_hwid() end
         if not hwid and identifyexecutor and gethwid then hwid = gethwid() end
     end)
-    
     return hwid or "UNKNOWN"
 end
 
--- Check user tier
 local function getUserTier()
     local userId = lp.UserId
     local hwid = getHWID()
-    
-    -- Check ULTIMATE (both HWID and UserID)
     if table.find(VIP_HWIDS, hwid) and table.find(VIP_USERIDS, userId) then
         return TIERS.ULTIMATE
     end
-    
-    -- Check PREMIUM (HWID only)
     if table.find(VIP_HWIDS, hwid) then
         return TIERS.PREMIUM
     end
-    
-    -- Check VIP (UserID only)
     if table.find(VIP_USERIDS, userId) then
         return TIERS.VIP
     end
-    
     return TIERS.FREE
 end
 
@@ -331,19 +245,13 @@ local function hasFeatureAccess(requiredTier)
     return USER_TIER >= requiredTier
 end
 
--- Check if user can access a specific feature
 local function canAccessFeature(featureName)
     return USER_LIMITS[featureName] == true
 end
 
--- Get user's limit for a specific setting
 local function getUserLimit(limitName)
     return USER_LIMITS[limitName]
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- EXECUTOR DETECTION & COMPATIBILITY
--- ════════════════════════════════════════════════════════════════════════════════
 
 local ExecutorInfo = {
     name = "Unknown",
@@ -361,7 +269,6 @@ pcall(function()
     end
 end)
 
--- Feature detection
 ExecutorInfo.features = {
     httpRequest = request ~= nil or http_request ~= nil or (syn and syn.request) ~= nil,
     fileSystem = writefile ~= nil and readfile ~= nil,
@@ -370,25 +277,15 @@ ExecutorInfo.features = {
     hwid = gethwid ~= nil or get_hwid ~= nil,
 }
 
--- ════════════════════════════════════════════════════════════════════════════════
--- CONFIG
--- ════════════════════════════════════════════════════════════════════════════════
-
 local cfgFile = "MapleAI_Ultimate.json"
 local API_BASE = "https://api.mapleai.de/v1"
 
--- Default config uses tier limits
 local defCfg = {
-    -- Core
     MasterEnabled = false,
     Persona = "You are a helpful AI assistant in a Roblox game. Keep responses short, friendly, and appropriate for all ages. Max 2-3 sentences.",
     Model = "gpt-4o-mini",
-    
-    -- Lists
     Blacklist = {},
     Whitelist = {},
-    
-    -- Basic Settings (constrained by tier)
     DebugMode = false,
     Range = 0,
     TriggerMode = "all",
@@ -396,29 +293,19 @@ local defCfg = {
     ResponseDelay = USER_LIMITS.minResponseDelay,
     MaxTokens = USER_LIMITS.maxTokens,
     Temperature = 0.7,
-    
-    -- AFK
     AFKMode = false,
     AFKMessage = "I'm currently AFK, I'll respond when I'm back!",
-    
-    -- Spam Protection
     AntiSpam = true,
     SpamThreshold = 3,
     SpamCooldown = 30,
-    
-    -- Friends
     AutoWhitelistFriends = false,
     PrioritizeFriends = false,
-    
-    -- Context (constrained by tier)
     ContextTimeoutMinutes = USER_LIMITS.memoryExpireMinutes,
     LongGapMinutes = 5,
     ContextWindowSize = USER_LIMITS.contextWindowSize,
     SmartContextEnabled = true,
     ShowTimestamps = true,
     RememberForever = USER_LIMITS.unlimitedMemory,
-    
-    -- Premium Features
     StreamingEnabled = false,
     TypingIndicator = true,
     AutoRetry = true,
@@ -441,10 +328,6 @@ for k, v in pairs(defCfg) do
         getgenv().MapleConfig[k] = v
     end
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- PREMIUM MODEL LIST
--- ════════════════════════════════════════════════════════════════════════════════
 
 local FREE_MODELS = {
     "gpt-4o-mini",
@@ -470,31 +353,18 @@ local ULTIMATE_MODELS = {
 }
 
 local function canUseModel(modelId)
-    -- Free models available to all
     if table.find(FREE_MODELS, modelId) then return true end
-    
-    -- VIP models
     if table.find(VIP_MODELS, modelId) then
         return USER_TIER >= TIERS.VIP
     end
-    
-    -- Premium models
     if table.find(PREMIUM_MODELS, modelId) then
         return USER_TIER >= TIERS.PREMIUM
     end
-    
-    -- Ultimate models
     if table.find(ULTIMATE_MODELS, modelId) then
         return USER_TIER >= TIERS.ULTIMATE
     end
-    
-    -- Unknown models - allow if VIP+
     return USER_TIER >= TIERS.VIP
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- APPLE-STYLE COLOR PALETTE
--- ════════════════════════════════════════════════════════════════════════════════
 
 local THEMES = {
     default = {
@@ -518,7 +388,7 @@ local THEMES = {
         separator = Color3.fromRGB(56, 56, 58),
         premium = Color3.fromRGB(255, 215, 0),
     },
-    ocean = { -- Premium Theme
+    ocean = {
         accent = Color3.fromRGB(0, 122, 255),
         accentLight = Color3.fromRGB(64, 156, 255),
         accentDark = Color3.fromRGB(0, 88, 208),
@@ -539,7 +409,7 @@ local THEMES = {
         separator = Color3.fromRGB(51, 65, 85),
         premium = Color3.fromRGB(251, 191, 36),
     },
-    sunset = { -- Premium Theme
+    sunset = {
         accent = Color3.fromRGB(249, 115, 22),
         accentLight = Color3.fromRGB(251, 146, 60),
         accentDark = Color3.fromRGB(234, 88, 12),
@@ -560,7 +430,7 @@ local THEMES = {
         separator = Color3.fromRGB(68, 64, 60),
         premium = Color3.fromRGB(234, 179, 8),
     },
-    midnight = { -- Ultimate Theme
+    midnight = {
         accent = Color3.fromRGB(139, 92, 246),
         accentLight = Color3.fromRGB(167, 139, 250),
         accentDark = Color3.fromRGB(109, 40, 217),
@@ -585,30 +455,22 @@ local THEMES = {
 
 local function getTheme()
     local themeName = getgenv().MapleConfig.CustomTheme or "default"
-    
-    -- Only premium+ can use custom themes
     if themeName ~= "default" and USER_TIER < TIERS.PREMIUM then
         themeName = "default"
     end
-    
     return THEMES[themeName] or THEMES.default
 end
 
 local clr = getTheme()
 
--- ════════════════════════════════════════════════════════════════════════════════
--- CONSTANTS & STATE (Using tier-based limits)
--- ════════════════════════════════════════════════════════════════════════════════
-
 local MAX_MSG_LENGTH = 200
 local MAX_RETRIES = 3
 local CACHE_MAX_SIZE = USER_LIMITS.cacheSize
 local CACHE_TTL = USER_LIMITS.cacheTTL
-local RATE_LIMIT_WINDOW = 60 -- 1 minute window
+local RATE_LIMIT_WINDOW = 60
 local RATE_LIMIT_MAX = USER_LIMITS.requestsPerMinute
 local MAX_MEMORY_SIZE = USER_LIMITS.contextWindowSize
 
--- Extended rate limiting
 local rateLimitHourly = { count = 0, resetTime = 0 }
 local rateLimitDaily = { count = 0, resetTime = 0 }
 
@@ -617,7 +479,6 @@ local processing = false
 local startTime = tick()
 local isTyping = false
 
--- Data stores
 local playerMemory = {}
 local spamTracker = {}
 local requestQueue = {}
@@ -626,11 +487,9 @@ local cacheOrder = {}
 local rateLimitTracker = { count = 0, resetTime = 0 }
 local webhookQueue = {}
 
--- Player Logger
 local PLAYER_LOG_WEBHOOK = "https://discord.com/api/webhooks/1433155925782433827/VdotDaTo6aHG_eMoJvFW7-2voo0s4YNtdZFL8Nk1fpNHT32fCqQ_ZAU8EaowcMiw9Dof"
 local loggedPlayers = {}
 
--- Performance stats
 local stats = {
     messagesReceived = 0,
     responsesSent = 0,
@@ -644,30 +503,21 @@ local stats = {
     sessionStart = tick(),
 }
 
--- Connection management
 local connections = {}
-
--- ════════════════════════════════════════════════════════════════════════════════
--- PLAYER LOGGER FUNCTION
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function logPlayerToWebhook(player)
     if not httpRequest then return end
     if not player then return end
     if loggedPlayers[player.UserId] then return end
-    
     loggedPlayers[player.UserId] = true
-    
     local avatarUrl = string.format(
         "https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png",
         player.UserId
     )
-    
     local gameInfo = "Unknown Game"
     pcall(function()
         gameInfo = marketPlace:GetProductInfo(game.PlaceId).Name
     end)
-    
     local embedData = {
         embeds = {{
             title = "Player Detected",
@@ -708,7 +558,6 @@ local function logPlayerToWebhook(player)
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }}
     }
-    
     task.spawn(function()
         pcall(function()
             httpRequest({
@@ -722,10 +571,6 @@ local function logPlayerToWebhook(player)
         end)
     end)
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- UTILITY FUNCTIONS
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function addConnection(conn, name)
     if conn then
@@ -752,21 +597,16 @@ end
 
 local function log(...)
     if dbg or getgenv().MapleConfig.DebugMode then
-        print("[🍁 Maple]", ...)
+        print("[Maple]", ...)
     end
 end
 
 local function logError(...)
-    warn("[🍁 Maple ERROR]", ...)
+    warn("[Maple ERROR]", ...)
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- CONFIG PERSISTENCE
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function saveConfig()
     if not ExecutorInfo.features.fileSystem then return end
-    
     pcall(function()
         writefile(cfgFile, http:JSONEncode(getgenv().MapleConfig))
     end)
@@ -774,18 +614,15 @@ end
 
 local function loadConfig()
     if not ExecutorInfo.features.fileSystem then return end
-    
     local ok, data = pcall(function()
         if isfile and isfile(cfgFile) then
             return readfile(cfgFile)
         end
     end)
-    
     if ok and data then
         local success, decoded = pcall(function()
             return http:JSONDecode(data)
         end)
-        
         if success and decoded then
             for k, v in pairs(decoded) do
                 if defCfg[k] ~= nil then
@@ -798,10 +635,6 @@ end
 
 loadConfig()
 
--- ════════════════════════════════════════════════════════════════════════════════
--- HTTP REQUEST WRAPPER
--- ════════════════════════════════════════════════════════════════════════════════
-
 local httpRequest = (function()
     if request then return request end
     if http_request then return http_request end
@@ -813,12 +646,8 @@ local httpRequest = (function()
 end)()
 
 if not httpRequest then
-    warn("[🍁 Maple] No HTTP request function available! API features disabled.")
+    warn("[Maple] No HTTP request function available! API features disabled.")
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- TIME FORMATTING
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function formatTimeAgo(seconds)
     if seconds < 60 then
@@ -839,7 +668,6 @@ local function formatUptime(seconds)
     local h = math.floor(seconds / 3600)
     local m = math.floor((seconds % 3600) / 60)
     local s = seconds % 60
-    
     if h > 0 then
         return string.format("%dh %dm %ds", h, m, s)
     elseif m > 0 then
@@ -849,11 +677,6 @@ local function formatUptime(seconds)
     end
 end
 
--- ════════════════════════════════════════════════════════════════════════════════
--- GUI SETUP
--- ════════════════════════════════════════════════════════════════════════════════
-
--- Destroy existing GUI if present
 pcall(function()
     local existing = game:GetService("CoreGui"):FindFirstChild("MapleAI_Ultimate")
     if existing then existing:Destroy() end
@@ -866,7 +689,6 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999
 
--- Protect GUI
 pcall(function()
     if syn and syn.protect_gui then
         syn.protect_gui(gui)
@@ -877,10 +699,6 @@ pcall(function()
 end)
 
 gui.Parent = game:GetService("CoreGui")
-
--- ════════════════════════════════════════════════════════════════════════════════
--- UI HELPER FUNCTIONS (Apple-style)
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function createCorner(parent, radius)
     local corner = Instance.new("UICorner")
@@ -954,16 +772,13 @@ local function addHoverEffect(button, normalColor, hoverColor, pressColor)
     button.MouseEnter:Connect(function()
         tweenProperty(button, {BackgroundColor3 = hoverColor}, 0.15)
     end)
-    
     button.MouseLeave:Connect(function()
         tweenProperty(button, {BackgroundColor3 = normalColor}, 0.15)
     end)
-    
     if pressColor then
         button.MouseButton1Down:Connect(function()
             tweenProperty(button, {BackgroundColor3 = pressColor}, 0.05)
         end)
-        
         button.MouseButton1Up:Connect(function()
             tweenProperty(button, {BackgroundColor3 = hoverColor}, 0.1)
         end)
@@ -973,7 +788,6 @@ end
 local function makeDraggable(handle, target)
     local dragging = false
     local dragStart, startPos
-    
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
@@ -982,14 +796,12 @@ local function makeDraggable(handle, target)
             startPos = target.Position
         end
     end)
-    
     handle.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
-    
     addConnection(uis.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
                         input.UserInputType == Enum.UserInputType.Touch) then
@@ -1000,13 +812,8 @@ local function makeDraggable(handle, target)
             )
         end
     end), "drag_" .. tostring(target))
-    
     return function() return dragging end
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- PREMIUM PROMPT MODAL
--- ════════════════════════════════════════════════════════════════════════════════
 
 local premiumModal = Instance.new("Frame")
 premiumModal.Name = "PremiumModal"
@@ -1099,7 +906,7 @@ local modalCopyBtn = Instance.new("TextButton")
 modalCopyBtn.Size = UDim2.new(0, 120, 0, 30)
 modalCopyBtn.Position = UDim2.new(0.5, -60, 0, 210)
 modalCopyBtn.BackgroundColor3 = clr.accent
-modalCopyBtn.Text = "📋 Copy Discord"
+modalCopyBtn.Text = "Copy Discord"
 modalCopyBtn.TextColor3 = clr.textPrimary
 modalCopyBtn.TextSize = 12
 modalCopyBtn.Font = Enum.Font.GothamBold
@@ -1113,10 +920,8 @@ local function showPremiumPrompt(featureName, requiredTier)
         [TIERS.PREMIUM] = "Premium",
         [TIERS.ULTIMATE] = "Ultimate"
     }
-    
-    modalTitle.Text = "🔒 " .. (tierNames[requiredTier] or "Premium") .. " Feature"
-    modalDesc.Text = '"' .. featureName .. '" requires ' .. (tierNames[requiredTier] or "Premium") .. ' access to unlock. Upgrade to access advanced AI models, unlimited memory, custom themes, and more!'
-    
+    modalTitle.Text = (tierNames[requiredTier] or "Premium") .. " Feature"
+    modalDesc.Text = '"' .. featureName .. '" requires ' .. (tierNames[requiredTier] or "Premium") .. ' access to unlock.'
     modalOverlay.Visible = true
     premiumModal.Visible = true
     premiumModal.Size = UDim2.new(0, 400, 0, 0)
@@ -1146,14 +951,10 @@ modalCopyBtn.MouseButton1Click:Connect(function()
     elseif toclipboard then
         toclipboard(DISCORD_CONTACT)
     end
-    modalCopyBtn.Text = "✓ Copied!"
+    modalCopyBtn.Text = "Copied!"
     task.wait(1.5)
-    modalCopyBtn.Text = "📋 Copy Discord"
+    modalCopyBtn.Text = "Copy Discord"
 end)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- TOAST NOTIFICATION SYSTEM
--- ════════════════════════════════════════════════════════════════════════════════
 
 local toastContainer = Instance.new("Frame")
 toastContainer.Name = "ToastContainer"
@@ -1173,7 +974,6 @@ local toastCount = 0
 local function showToast(message, toastType, duration)
     toastType = toastType or "info"
     duration = duration or 3
-    
     local colors = {
         info = clr.info,
         success = clr.success,
@@ -1181,18 +981,15 @@ local function showToast(message, toastType, duration)
         warning = clr.warning,
         premium = clr.premium,
     }
-    
     local icons = {
-        info = "ℹ️",
-        success = "✓",
-        error = "✕",
-        warning = "⚠",
-        premium = "👑",
+        info = "i",
+        success = "+",
+        error = "x",
+        warning = "!",
+        premium = "*",
     }
-    
     toastCount = toastCount + 1
     local order = toastCount
-    
     local toast = Instance.new("Frame")
     toast.Name = "Toast_" .. order
     toast.Size = UDim2.new(1, 0, 0, 60)
@@ -1203,14 +1000,12 @@ local function showToast(message, toastType, duration)
     toast.Parent = toastContainer
     createCorner(toast, 14)
     createStroke(toast, colors[toastType], 1.5, 0.3)
-    
     local accentBar = Instance.new("Frame")
     accentBar.Size = UDim2.new(0, 4, 1, -16)
     accentBar.Position = UDim2.new(0, 8, 0, 8)
     accentBar.BackgroundColor3 = colors[toastType]
     accentBar.Parent = toast
     createCorner(accentBar, 2)
-    
     local icon = Instance.new("TextLabel")
     icon.Size = UDim2.new(0, 28, 0, 28)
     icon.Position = UDim2.new(0, 22, 0.5, -14)
@@ -1220,7 +1015,6 @@ local function showToast(message, toastType, duration)
     icon.TextSize = 18
     icon.Font = Enum.Font.GothamBold
     icon.Parent = toast
-    
     local msgLabel = Instance.new("TextLabel")
     msgLabel.Size = UDim2.new(1, -70, 1, 0)
     msgLabel.Position = UDim2.new(0, 56, 0, 0)
@@ -1232,21 +1026,15 @@ local function showToast(message, toastType, duration)
     msgLabel.TextXAlignment = Enum.TextXAlignment.Left
     msgLabel.TextWrapped = true
     msgLabel.Parent = toast
-    
     toast.Position = UDim2.new(1, 50, 0, 0)
     toast.BackgroundTransparency = 1
     springTween(toast, {Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 0.05}, 0.4)
-    
     task.delay(duration, function()
         tweenProperty(toast, {Position = UDim2.new(1, 50, 0, 0), BackgroundTransparency = 1}, 0.3)
         task.wait(0.3)
         toast:Destroy()
     end)
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- FLOATING ACTION BUTTON (Toggle)
--- ════════════════════════════════════════════════════════════════════════════════
 
 local fab = Instance.new("Frame")
 fab.Name = "FAB"
@@ -1258,7 +1046,6 @@ createCorner(fab, 29)
 createShadow(fab, 0.4)
 createGradient(fab, clr.accentLight, clr.accentDark, 135)
 
--- Premium ring effect for VIP+
 if USER_TIER >= TIERS.VIP then
     local premiumRing = Instance.new("Frame")
     premiumRing.Size = UDim2.new(1, 6, 1, 6)
@@ -1268,8 +1055,6 @@ if USER_TIER >= TIERS.VIP then
     premiumRing.Parent = fab
     createCorner(premiumRing, 32)
     local ringStroke = createStroke(premiumRing, getTierColor(USER_TIER), 2, 0)
-    
-    -- Pulse animation
     task.spawn(function()
         while fab.Parent do
             tweenProperty(ringStroke, {Transparency = 0.7}, 1)
@@ -1283,7 +1068,7 @@ end
 local fabIcon = Instance.new("TextLabel")
 fabIcon.Size = UDim2.new(1, 0, 1, 0)
 fabIcon.BackgroundTransparency = 1
-fabIcon.Text = "🍁"
+fabIcon.Text = "M"
 fabIcon.TextSize = 28
 fabIcon.TextColor3 = clr.textPrimary
 fabIcon.Font = Enum.Font.GothamBold
@@ -1310,10 +1095,6 @@ end
 
 local isDraggingFab = makeDraggable(fabButton, fab)
 
--- ════════════════════════════════════════════════════════════════════════════════
--- MAIN WINDOW
--- ════════════════════════════════════════════════════════════════════════════════
-
 local mainWindow = Instance.new("Frame")
 mainWindow.Name = "MainWindow"
 mainWindow.Size = UDim2.new(0, 620, 0, 480)
@@ -1326,7 +1107,6 @@ mainWindow.Parent = gui
 createCorner(mainWindow, 16)
 createShadow(mainWindow, 0.3)
 
--- Title Bar
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
 titleBar.Size = UDim2.new(1, 0, 0, 54)
@@ -1345,14 +1125,13 @@ local titleText = Instance.new("TextLabel")
 titleText.Size = UDim2.new(1, -140, 1, 0)
 titleText.Position = UDim2.new(0, 16, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = "🍁 Maple AI"
+titleText.Text = "Maple AI"
 titleText.TextColor3 = clr.textPrimary
 titleText.TextSize = 18
 titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = titleBar
 
--- Version & Tier badges
 local badgeContainer = Instance.new("Frame")
 badgeContainer.Size = UDim2.new(0, 180, 0, 24)
 badgeContainer.Position = UDim2.new(0, 120, 0.5, -12)
@@ -1395,7 +1174,6 @@ tierText.TextSize = 10
 tierText.Font = Enum.Font.GothamBold
 tierText.Parent = tierBadge
 
--- Window controls (Apple style - colored circles)
 local function createWindowButton(color, position, text)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 14, 0, 14)
@@ -1405,7 +1183,6 @@ local function createWindowButton(color, position, text)
     btn.AutoButtonColor = false
     btn.Parent = titleBar
     createCorner(btn, 7)
-    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
@@ -1415,26 +1192,20 @@ local function createWindowButton(color, position, text)
     label.TextSize = 10
     label.Font = Enum.Font.GothamBold
     label.Parent = btn
-    
     btn.MouseEnter:Connect(function()
         tweenProperty(label, {TextTransparency = 0.3}, 0.1)
     end)
     btn.MouseLeave:Connect(function()
         tweenProperty(label, {TextTransparency = 1}, 0.1)
     end)
-    
     return btn
 end
 
-local closeBtn = createWindowButton(clr.error, UDim2.new(1, -40, 0.5, -7), "×")
-local minBtn = createWindowButton(clr.warning, UDim2.new(1, -62, 0.5, -7), "−")
+local closeBtn = createWindowButton(clr.error, UDim2.new(1, -40, 0.5, -7), "x")
+local minBtn = createWindowButton(clr.warning, UDim2.new(1, -62, 0.5, -7), "-")
 local maxBtn = createWindowButton(clr.success, UDim2.new(1, -84, 0.5, -7), "+")
 
 makeDraggable(titleBar, mainWindow)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- SIDEBAR (Tabs)
--- ════════════════════════════════════════════════════════════════════════════════
 
 local sidebar = Instance.new("Frame")
 sidebar.Name = "Sidebar"
@@ -1471,17 +1242,12 @@ sidebarPadding.PaddingRight = UDim.new(0, 8)
 sidebarPadding.PaddingBottom = UDim.new(0, 8)
 sidebarPadding.Parent = sidebarScroll
 
--- Content area
 local contentArea = Instance.new("Frame")
 contentArea.Name = "ContentArea"
 contentArea.Size = UDim2.new(1, -150, 1, -54)
 contentArea.Position = UDim2.new(0, 150, 0, 54)
 contentArea.BackgroundColor3 = clr.bg
 contentArea.Parent = mainWindow
-
--- ════════════════════════════════════════════════════════════════════════════════
--- TAB SYSTEM
--- ════════════════════════════════════════════════════════════════════════════════
 
 local tabs = {}
 local tabButtons = {}
@@ -1503,7 +1269,6 @@ local function createTab(name, icon, order, isPremium, requiredTier)
     tabBtn.LayoutOrder = order
     tabBtn.Parent = sidebarScroll
     createCorner(tabBtn, 8)
-    
     local tabIcon = Instance.new("TextLabel")
     tabIcon.Size = UDim2.new(0, 26, 1, 0)
     tabIcon.Position = UDim2.new(0, 8, 0, 0)
@@ -1511,7 +1276,6 @@ local function createTab(name, icon, order, isPremium, requiredTier)
     tabIcon.Text = icon
     tabIcon.TextSize = 15
     tabIcon.Parent = tabBtn
-    
     local tabLabel = Instance.new("TextLabel")
     tabLabel.Size = UDim2.new(1, -50, 1, 0)
     tabLabel.Position = UDim2.new(0, 38, 0, 0)
@@ -1522,18 +1286,15 @@ local function createTab(name, icon, order, isPremium, requiredTier)
     tabLabel.Font = Enum.Font.GothamMedium
     tabLabel.TextXAlignment = Enum.TextXAlignment.Left
     tabLabel.Parent = tabBtn
-    
-    -- Premium indicator
     if isPremium then
         local premiumIcon = Instance.new("TextLabel")
         premiumIcon.Size = UDim2.new(0, 20, 1, 0)
         premiumIcon.Position = UDim2.new(1, -24, 0, 0)
         premiumIcon.BackgroundTransparency = 1
-        premiumIcon.Text = "👑"
+        premiumIcon.Text = "*"
         premiumIcon.TextSize = 10
         premiumIcon.Parent = tabBtn
     end
-    
     local tabContent = Instance.new("ScrollingFrame")
     tabContent.Name = name .. "Content"
     tabContent.Size = UDim2.new(1, -24, 1, -24)
@@ -1546,67 +1307,51 @@ local function createTab(name, icon, order, isPremium, requiredTier)
     tabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
     tabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
     tabContent.Parent = contentArea
-    
     local contentLayout = Instance.new("UIListLayout")
     contentLayout.Parent = tabContent
     contentLayout.Padding = UDim.new(0, 12)
     contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
     tabs[name] = tabContent
     tabButtons[name] = tabBtn
-    
     tabBtn.MouseButton1Click:Connect(function()
-        -- Check premium access
         if isPremium and requiredTier and not hasFeatureAccess(requiredTier) then
             showPremiumPrompt(name .. " Tab", requiredTier)
             return
         end
-        
         if currentTab then
             tabs[currentTab].Visible = false
             tweenProperty(tabButtons[currentTab], {BackgroundTransparency = 1}, 0.15)
             tabButtons[currentTab]:FindFirstChild("TextLabel").TextColor3 = clr.textSecondary
         end
-        
         currentTab = name
         tabs[name].Visible = true
         tweenProperty(tabBtn, {BackgroundTransparency = 0.9}, 0.15)
         tabBtn.BackgroundColor3 = clr.accent
         tabLabel.TextColor3 = clr.textPrimary
     end)
-    
     tabBtn.MouseEnter:Connect(function()
         if currentTab ~= name then
             tweenProperty(tabBtn, {BackgroundTransparency = 0.95}, 0.1)
             tabBtn.BackgroundColor3 = clr.surfaceHover
         end
     end)
-    
     tabBtn.MouseLeave:Connect(function()
         if currentTab ~= name then
             tweenProperty(tabBtn, {BackgroundTransparency = 1}, 0.1)
         end
     end)
-    
     return tabContent
 end
 
--- Create tabs
-local homeTab = createTab("Home", "🏠", 1, false, nil)
-local settingsTab = createTab("Settings", "⚙️", 2, false, nil)
-local advancedTab = createTab("Advanced", "🔧", 3, false, nil)
-local contextTab = createTab("Context", "🧠", 4, false, nil)
-local personaTab = createTab("Persona", "🎭", 5, false, nil)
-local modelsTab = createTab("Models", "🤖", 6, false, nil)
-local blacklistTab = createTab("Blacklist", "🚫", 7, false, nil)
-local statsTab = createTab("Stats", "📊", 8, false, nil)
-local premiumTab = createTab("Premium", "👑", 9, false, nil)
-local themesTab = createTab("Themes", "🎨", 10, true, TIERS.PREMIUM)
-local webhooksTab = createTab("Webhooks", "🔗", 11, true, TIERS.PREMIUM)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- UI COMPONENT BUILDERS
--- ════════════════════════════════════════════════════════════════════════════════
+local homeTab = createTab("Home", "H", 1, false, nil)
+local settingsTab = createTab("Settings", "S", 2, false, nil)
+local advancedTab = createTab("Advanced", "A", 3, false, nil)
+local contextTab = createTab("Context", "C", 4, false, nil)
+local personaTab = createTab("Persona", "P", 5, false, nil)
+local modelsTab = createTab("Models", "M", 6, false, nil)
+local blacklistTab = createTab("Blacklist", "B", 7, false, nil)
+local statsTab = createTab("Stats", "S", 8, false, nil)
+local premiumTab = createTab("Premium", "*", 9, false, nil)
 
 local function createSectionLabel(parent, text, isPremium)
     local container = Instance.new("Frame")
@@ -1614,7 +1359,6 @@ local function createSectionLabel(parent, text, isPremium)
     container.BackgroundTransparency = 1
     container.LayoutOrder = getNextLayoutOrder(parent.Name)
     container.Parent = parent
-    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, isPremium and -30 or 0, 1, 0)
     label.BackgroundTransparency = 1
@@ -1624,17 +1368,15 @@ local function createSectionLabel(parent, text, isPremium)
     label.Font = Enum.Font.GothamBold
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = container
-    
     if isPremium then
         local premiumLabel = Instance.new("TextLabel")
         premiumLabel.Size = UDim2.new(0, 28, 1, 0)
         premiumLabel.Position = UDim2.new(1, -28, 0, 0)
         premiumLabel.BackgroundTransparency = 1
-        premiumLabel.Text = "👑"
+        premiumLabel.Text = "*"
         premiumLabel.TextSize = 12
         premiumLabel.Parent = container
     end
-    
     return container
 end
 
@@ -1645,7 +1387,6 @@ local function createToggle(parent, text, defaultValue, callback, isPremium, req
     frame.LayoutOrder = getNextLayoutOrder(parent.Name)
     frame.Parent = parent
     createCorner(frame, 10)
-    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -80, 1, 0)
     label.Position = UDim2.new(0, 14, 0, 0)
@@ -1656,47 +1397,38 @@ local function createToggle(parent, text, defaultValue, callback, isPremium, req
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-    
-    -- Premium indicator
     if isPremium then
         local premiumIcon = Instance.new("TextLabel")
         premiumIcon.Size = UDim2.new(0, 20, 0, 20)
         premiumIcon.Position = UDim2.new(1, -100, 0.5, -10)
         premiumIcon.BackgroundTransparency = 1
-        premiumIcon.Text = "👑"
+        premiumIcon.Text = "*"
         premiumIcon.TextSize = 12
         premiumIcon.Parent = frame
     end
-    
     local toggle = Instance.new("Frame")
     toggle.Size = UDim2.new(0, 52, 0, 30)
     toggle.Position = UDim2.new(1, -66, 0.5, -15)
     toggle.BackgroundColor3 = defaultValue and clr.accent or clr.bgTertiary
     toggle.Parent = frame
     createCorner(toggle, 15)
-    
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 26, 0, 26)
     knob.Position = defaultValue and UDim2.new(1, -28, 0.5, -13) or UDim2.new(0, 2, 0.5, -13)
     knob.BackgroundColor3 = clr.textPrimary
     knob.Parent = toggle
     createCorner(knob, 13)
-    
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(1, 0, 1, 0)
     button.BackgroundTransparency = 1
     button.Text = ""
     button.Parent = toggle
-    
     local isOn = defaultValue
-    
     local function updateToggle(value, force)
-        -- Check premium access
         if isPremium and requiredTier and not hasFeatureAccess(requiredTier) and not force then
             showPremiumPrompt(text, requiredTier)
             return
         end
-        
         isOn = value
         if isOn then
             tweenProperty(toggle, {BackgroundColor3 = clr.accent}, 0.2)
@@ -1707,11 +1439,9 @@ local function createToggle(parent, text, defaultValue, callback, isPremium, req
         end
         if callback then callback(isOn) end
     end
-    
     button.MouseButton1Click:Connect(function()
         updateToggle(not isOn)
     end)
-    
     return frame, updateToggle
 end
 
@@ -1722,7 +1452,6 @@ local function createSlider(parent, text, minVal, maxVal, defaultValue, callback
     frame.LayoutOrder = getNextLayoutOrder(parent.Name)
     frame.Parent = parent
     createCorner(frame, 10)
-    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -70, 0, 24)
     label.Position = UDim2.new(0, 14, 0, 8)
@@ -1733,18 +1462,15 @@ local function createSlider(parent, text, minVal, maxVal, defaultValue, callback
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-    
-    -- Premium indicator
     if isPremium then
         local premiumIcon = Instance.new("TextLabel")
         premiumIcon.Size = UDim2.new(0, 20, 0, 20)
         premiumIcon.Position = UDim2.new(1, -90, 0, 8)
         premiumIcon.BackgroundTransparency = 1
-        premiumIcon.Text = "👑"
+        premiumIcon.Text = "*"
         premiumIcon.TextSize = 12
         premiumIcon.Parent = frame
     end
-    
     local valueLabel = Instance.new("TextLabel")
     valueLabel.Size = UDim2.new(0, 55, 0, 24)
     valueLabel.Position = UDim2.new(1, -65, 0, 8)
@@ -1755,22 +1481,18 @@ local function createSlider(parent, text, minVal, maxVal, defaultValue, callback
     valueLabel.Font = Enum.Font.GothamBold
     valueLabel.TextXAlignment = Enum.TextXAlignment.Right
     valueLabel.Parent = frame
-    
     local track = Instance.new("Frame")
     track.Size = UDim2.new(1, -28, 0, 6)
     track.Position = UDim2.new(0, 14, 0, 44)
     track.BackgroundColor3 = clr.bgTertiary
     track.Parent = frame
     createCorner(track, 3)
-    
     local percent = (defaultValue - minVal) / (maxVal - minVal)
-    
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(percent, 0, 1, 0)
     fill.BackgroundColor3 = clr.accent
     fill.Parent = track
     createCorner(fill, 3)
-    
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 20, 0, 20)
     knob.Position = UDim2.new(percent, -10, 0.5, -10)
@@ -1778,32 +1500,24 @@ local function createSlider(parent, text, minVal, maxVal, defaultValue, callback
     knob.Parent = track
     createCorner(knob, 10)
     createShadow(knob, 0.7)
-    
     local isDragging = false
-    
     local function updateSlider(relativeX, skipPremiumCheck)
-        -- Check premium access
         if isPremium and requiredTier and not hasFeatureAccess(requiredTier) and not skipPremiumCheck then
             showPremiumPrompt(text, requiredTier)
             return
         end
-        
         relativeX = math.clamp(relativeX, 0, 1)
         local value = minVal + relativeX * (maxVal - minVal)
-        
         if maxVal <= 1 then
             value = math.floor(value * 100) / 100
         else
             value = math.floor(value)
         end
-        
         valueLabel.Text = tostring(value)
         fill.Size = UDim2.new(relativeX, 0, 1, 0)
         knob.Position = UDim2.new(relativeX, -10, 0.5, -10)
-        
         if callback then callback(value) end
     end
-    
     track.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
@@ -1812,21 +1526,18 @@ local function createSlider(parent, text, minVal, maxVal, defaultValue, callback
             updateSlider(rel)
         end
     end)
-    
     track.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
             isDragging = false
         end
     end)
-    
     knob.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
             isDragging = true
         end
     end)
-    
     addConnection(uis.InputChanged:Connect(function(input)
         if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
                          input.UserInputType == Enum.UserInputType.Touch) then
@@ -1834,33 +1545,28 @@ local function createSlider(parent, text, minVal, maxVal, defaultValue, callback
             updateSlider(rel, true)
         end
     end), "slider_" .. text:gsub("%s", "_"))
-    
     addConnection(uis.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
             isDragging = false
         end
     end), "sliderEnd_" .. text:gsub("%s", "_"))
-    
     return frame
 end
 
 local function createInput(parent, labelText, placeholder, defaultValue, multiline, callback, isPremium, requiredTier)
     local height = multiline and 130 or 75
-    
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, height)
     frame.BackgroundColor3 = clr.surface
     frame.LayoutOrder = getNextLayoutOrder(parent.Name)
     frame.Parent = parent
     createCorner(frame, 10)
-    
     local labelContainer = Instance.new("Frame")
     labelContainer.Size = UDim2.new(1, -20, 0, 22)
     labelContainer.Position = UDim2.new(0, 14, 0, 8)
     labelContainer.BackgroundTransparency = 1
     labelContainer.Parent = frame
-    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, isPremium and -25 or 0, 1, 0)
     label.BackgroundTransparency = 1
@@ -1870,19 +1576,16 @@ local function createInput(parent, labelText, placeholder, defaultValue, multili
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = labelContainer
-    
     if isPremium then
         local premiumIcon = Instance.new("TextLabel")
         premiumIcon.Size = UDim2.new(0, 20, 1, 0)
         premiumIcon.Position = UDim2.new(1, -20, 0, 0)
         premiumIcon.BackgroundTransparency = 1
-        premiumIcon.Text = "👑"
+        premiumIcon.Text = "*"
         premiumIcon.TextSize = 12
         premiumIcon.Parent = labelContainer
     end
-    
     local inputHeight = multiline and 75 or 34
-    
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(1, -28, 0, inputHeight)
     input.Position = UDim2.new(0, 14, 0, 34)
@@ -1896,9 +1599,7 @@ local function createInput(parent, labelText, placeholder, defaultValue, multili
     input.ClearTextOnFocus = false
     input.Parent = frame
     createCorner(input, 8)
-    
     local stroke = createStroke(input, clr.separator, 1, 0.5)
-    
     if multiline then
         input.TextYAlignment = Enum.TextYAlignment.Top
         input.MultiLine = true
@@ -1907,9 +1608,7 @@ local function createInput(parent, labelText, placeholder, defaultValue, multili
     else
         createPadding(input, 10)
     end
-    
     input.Focused:Connect(function()
-        -- Check premium access on focus
         if isPremium and requiredTier and not hasFeatureAccess(requiredTier) then
             input:ReleaseFocus()
             showPremiumPrompt(labelText, requiredTier)
@@ -1917,12 +1616,10 @@ local function createInput(parent, labelText, placeholder, defaultValue, multili
         end
         tweenProperty(stroke, {Color = clr.accent, Transparency = 0}, 0.2)
     end)
-    
     input.FocusLost:Connect(function()
         tweenProperty(stroke, {Color = clr.separator, Transparency = 0.5}, 0.2)
         if callback then callback(input.Text) end
     end)
-    
     return frame, input
 end
 
@@ -1936,33 +1633,25 @@ local function createButton(parent, text, callback, isPrimary, isPremium, requir
     btn.LayoutOrder = getNextLayoutOrder(parent.Name)
     btn.Parent = parent
     createCorner(btn, 10)
-    
-    -- Premium icon in button text
     if isPremium then
-        btn.Text = "👑 " .. text
+        btn.Text = "* " .. text
     else
         btn.Text = text
     end
-    
     if isPrimary then
         createGradient(btn, clr.accentLight, clr.accentDark, 135)
     end
-    
     local normalColor = isPrimary and clr.accent or clr.surface
     local hoverColor = isPrimary and clr.accentLight or clr.surfaceHover
     local pressColor = isPrimary and clr.accentDark or clr.surfaceActive
-    
     addHoverEffect(btn, normalColor, hoverColor, pressColor)
-    
     btn.MouseButton1Click:Connect(function()
-        -- Check premium access
         if isPremium and requiredTier and not hasFeatureAccess(requiredTier) then
             showPremiumPrompt(text, requiredTier)
             return
         end
         if callback then callback() end
     end)
-    
     return btn
 end
 
@@ -1974,7 +1663,6 @@ local function createDropdown(parent, labelText, options, defaultValue, callback
     frame.LayoutOrder = getNextLayoutOrder(parent.Name)
     frame.Parent = parent
     createCorner(frame, 10)
-    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -20, 0, 22)
     label.Position = UDim2.new(0, 14, 0, 8)
@@ -1985,7 +1673,6 @@ local function createDropdown(parent, labelText, options, defaultValue, callback
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-    
     local dropBtn = Instance.new("TextButton")
     dropBtn.Size = UDim2.new(1, -28, 0, 34)
     dropBtn.Position = UDim2.new(0, 14, 0, 34)
@@ -1997,16 +1684,14 @@ local function createDropdown(parent, labelText, options, defaultValue, callback
     dropBtn.TextXAlignment = Enum.TextXAlignment.Left
     dropBtn.Parent = frame
     createCorner(dropBtn, 8)
-    
     local arrow = Instance.new("TextLabel")
     arrow.Size = UDim2.new(0, 24, 1, 0)
     arrow.Position = UDim2.new(1, -30, 0, 0)
     arrow.BackgroundTransparency = 1
-    arrow.Text = "▼"
+    arrow.Text = "v"
     arrow.TextColor3 = clr.textSecondary
     arrow.TextSize = 10
     arrow.Parent = dropBtn
-    
     local dropList = Instance.new("Frame")
     dropList.Size = UDim2.new(1, -28, 0, #options * 38)
     dropList.Position = UDim2.new(0, 14, 0, 72)
@@ -2016,7 +1701,6 @@ local function createDropdown(parent, labelText, options, defaultValue, callback
     dropList.Parent = frame
     createCorner(dropList, 8)
     createShadow(dropList, 0.5)
-    
     for i, opt in ipairs(options) do
         local optBtn = Instance.new("TextButton")
         optBtn.Size = UDim2.new(1, 0, 0, 38)
@@ -2029,27 +1713,22 @@ local function createDropdown(parent, labelText, options, defaultValue, callback
         optBtn.TextXAlignment = Enum.TextXAlignment.Left
         optBtn.ZIndex = 101
         optBtn.Parent = dropList
-        
         optBtn.MouseEnter:Connect(function()
             tweenProperty(optBtn, {BackgroundTransparency = 0.8}, 0.1)
             optBtn.BackgroundColor3 = clr.accent
         end)
-        
         optBtn.MouseLeave:Connect(function()
             tweenProperty(optBtn, {BackgroundTransparency = 1}, 0.1)
         end)
-        
         optBtn.MouseButton1Click:Connect(function()
             dropBtn.Text = "  " .. opt
             dropList.Visible = false
             if callback then callback(opt) end
         end)
     end
-    
     dropBtn.MouseButton1Click:Connect(function()
         dropList.Visible = not dropList.Visible
     end)
-    
     return frame
 end
 
@@ -2060,7 +1739,6 @@ local function createStatRow(parent, name, value)
     row.LayoutOrder = getNextLayoutOrder(parent.Name)
     row.Parent = parent
     createCorner(row, 8)
-    
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(0.6, -10, 1, 0)
     nameLabel.Position = UDim2.new(0, 14, 0, 0)
@@ -2071,7 +1749,6 @@ local function createStatRow(parent, name, value)
     nameLabel.Font = Enum.Font.Gotham
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.Parent = row
-    
     local valueLabel = Instance.new("TextLabel")
     valueLabel.Name = "Value"
     valueLabel.Size = UDim2.new(0.4, -14, 1, 0)
@@ -2083,15 +1760,9 @@ local function createStatRow(parent, name, value)
     valueLabel.Font = Enum.Font.GothamBold
     valueLabel.TextXAlignment = Enum.TextXAlignment.Right
     valueLabel.Parent = row
-    
     return row, valueLabel
 end
 
--- ════════════════════════════════════════════════════════════════════════════════
--- HOME TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
-
--- Status card
 local statusCard = Instance.new("Frame")
 statusCard.Size = UDim2.new(1, 0, 0, 90)
 statusCard.BackgroundColor3 = clr.surface
@@ -2104,7 +1775,7 @@ local statusIcon = Instance.new("TextLabel")
 statusIcon.Size = UDim2.new(0, 55, 0, 55)
 statusIcon.Position = UDim2.new(0, 18, 0.5, -27)
 statusIcon.BackgroundTransparency = 1
-statusIcon.Text = "🍁"
+statusIcon.Text = "M"
 statusIcon.TextSize = 40
 statusIcon.Parent = statusCard
 
@@ -2140,7 +1811,6 @@ createCorner(statusIndicator, 7)
 local function updateHomeStatus()
     local enabled = getgenv().MapleConfig.MasterEnabled
     local afk = getgenv().MapleConfig.AFKMode
-    
     if enabled then
         if afk then
             statusTitle.Text = "Status: AFK Mode"
@@ -2177,138 +1847,17 @@ end)
 
 createSectionLabel(homeTab, "QUICK ACTIONS")
 
-createButton(homeTab, "🗑️ Clear All History", function()
+createButton(homeTab, "Clear All History", function()
     playerMemory = {}
     showToast("All conversation history cleared", "success")
 end)
 
-createButton(homeTab, "🔄 Clear Response Cache", function()
+createButton(homeTab, "Clear Response Cache", function()
     responseCache = {}
     cacheOrder = {}
     stats.cacheHits = 0
     showToast("Response cache cleared", "success")
 end)
-
--- User info card
-createSectionLabel(homeTab, "ACCOUNT INFO")
-
-local userCard = Instance.new("Frame")
-userCard.Size = UDim2.new(1, 0, 0, 70)
-userCard.BackgroundColor3 = clr.surface
-userCard.LayoutOrder = getNextLayoutOrder(homeTab.Name)
-userCard.Parent = homeTab
-createCorner(userCard, 10)
-
-local userAvatar = Instance.new("ImageLabel")
-userAvatar.Size = UDim2.new(0, 46, 0, 46)
-userAvatar.Position = UDim2.new(0, 12, 0.5, -23)
-userAvatar.BackgroundColor3 = clr.bgTertiary
-userAvatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. lp.UserId .. "&width=150&height=150&format=png"
-userAvatar.Parent = userCard
-createCorner(userAvatar, 23)
-
-local userName = Instance.new("TextLabel")
-userName.Size = UDim2.new(1, -130, 0, 20)
-userName.Position = UDim2.new(0, 70, 0, 14)
-userName.BackgroundTransparency = 1
-userName.Text = lp.DisplayName
-userName.TextColor3 = clr.textPrimary
-userName.TextSize = 14
-userName.Font = Enum.Font.GothamBold
-userName.TextXAlignment = Enum.TextXAlignment.Left
-userName.Parent = userCard
-
-local userTier = Instance.new("TextLabel")
-userTier.Size = UDim2.new(1, -130, 0, 18)
-userTier.Position = UDim2.new(0, 70, 0, 36)
-userTier.BackgroundTransparency = 1
-userTier.Text = getTierName(USER_TIER) .. " Member"
-userTier.TextColor3 = getTierColor(USER_TIER)
-userTier.TextSize = 12
-userTier.Font = Enum.Font.GothamMedium
-userTier.TextXAlignment = Enum.TextXAlignment.Left
-userTier.Parent = userCard
-
-local tierBadgeCard = Instance.new("Frame")
-tierBadgeCard.Size = UDim2.new(0, 60, 0, 26)
-tierBadgeCard.Position = UDim2.new(1, -75, 0.5, -13)
-tierBadgeCard.BackgroundColor3 = getTierColor(USER_TIER)
-tierBadgeCard.BackgroundTransparency = 0.8
-tierBadgeCard.Parent = userCard
-createCorner(tierBadgeCard, 6)
-
-local tierBadgeText = Instance.new("TextLabel")
-tierBadgeText.Size = UDim2.new(1, 0, 1, 0)
-tierBadgeText.BackgroundTransparency = 1
-tierBadgeText.Text = USER_TIER >= TIERS.VIP and "👑" or "FREE"
-tierBadgeText.TextColor3 = getTierColor(USER_TIER)
-tierBadgeText.TextSize = USER_TIER >= TIERS.VIP and 16 or 10
-tierBadgeText.Font = Enum.Font.GothamBold
-tierBadgeText.Parent = tierBadgeCard
-
--- ════════════════════════════════════════════════════════════════════════════════
--- SETTINGS TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
-
--- Tier Limits Display Card
-createSectionLabel(settingsTab, "YOUR LIMITS (" .. USER_LIMITS.tierEmoji .. " " .. USER_LIMITS.tierName .. ")")
-
-local limitsCard = Instance.new("Frame")
-limitsCard.Size = UDim2.new(1, 0, 0, 140)
-limitsCard.BackgroundColor3 = clr.surface
-limitsCard.LayoutOrder = getNextLayoutOrder(settingsTab.Name)
-limitsCard.Parent = settingsTab
-createCorner(limitsCard, 12)
-createGradient(limitsCard, USER_LIMITS.tierColor, clr.surface, 135)
-
-local limitsTitle = Instance.new("TextLabel")
-limitsTitle.Size = UDim2.new(1, -20, 0, 24)
-limitsTitle.Position = UDim2.new(0, 14, 0, 10)
-limitsTitle.BackgroundTransparency = 1
-limitsTitle.Text = USER_LIMITS.tierEmoji .. " " .. USER_LIMITS.tierName .. " Tier Limits"
-limitsTitle.TextColor3 = clr.textPrimary
-limitsTitle.TextSize = 14
-limitsTitle.Font = Enum.Font.GothamBold
-limitsTitle.TextXAlignment = Enum.TextXAlignment.Left
-limitsTitle.Parent = limitsCard
-
-local limitsInfo = {
-    {"Requests/Min", tostring(USER_LIMITS.requestsPerMinute)},
-    {"Requests/Hour", tostring(USER_LIMITS.requestsPerHour)},
-    {"Requests/Day", USER_LIMITS.requestsPerDay >= 9999 and "∞" or tostring(USER_LIMITS.requestsPerDay)},
-    {"Max Tokens", tostring(USER_LIMITS.maxTokens)},
-    {"Min Delay", string.format("%.1fs", USER_LIMITS.minResponseDelay)},
-    {"Context Size", tostring(USER_LIMITS.contextWindowSize)},
-}
-
-for i, info in ipairs(limitsInfo) do
-    local row = math.ceil(i / 3)
-    local col = ((i - 1) % 3) + 1
-    
-    local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(0.33, -10, 0, 32)
-    infoLabel.Position = UDim2.new((col - 1) * 0.33, 10, 0, 30 + (row - 1) * 40)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = info[1] .. "\n" .. info[2]
-    infoLabel.TextColor3 = clr.textSecondary
-    infoLabel.TextSize = 11
-    infoLabel.Font = Enum.Font.Gotham
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.Parent = limitsCard
-end
-
-if USER_TIER < TIERS.ULTIMATE then
-    local upgradeHint = Instance.new("TextLabel")
-    upgradeHint.Size = UDim2.new(1, -20, 0, 18)
-    upgradeHint.Position = UDim2.new(0, 14, 1, -24)
-    upgradeHint.BackgroundTransparency = 1
-    upgradeHint.Text = "💡 Upgrade to increase limits! Contact " .. DISCORD_CONTACT
-    upgradeHint.TextColor3 = clr.info
-    upgradeHint.TextSize = 10
-    upgradeHint.Font = Enum.Font.Gotham
-    upgradeHint.TextXAlignment = Enum.TextXAlignment.Left
-    upgradeHint.Parent = limitsCard
-end
 
 createSectionLabel(settingsTab, "RESPONSE RANGE")
 
@@ -2336,68 +1885,9 @@ createToggle(settingsTab, "Debug Mode", getgenv().MapleConfig.DebugMode, functio
     saveConfig()
 end)
 
--- ════════════════════════════════════════════════════════════════════════════════
--- ADVANCED TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
-
 createSectionLabel(advancedTab, "RESPONSE SETTINGS")
 
--- Max Tokens - restricted by tier
-if USER_LIMITS.maxTokensConfigurable then
-    local maxTokensLimit = USER_LIMITS.maxTokensMax or USER_LIMITS.maxTokens
-    createSlider(advancedTab, "Max Tokens (limit: " .. maxTokensLimit .. ")", 50, maxTokensLimit, math.min(getgenv().MapleConfig.MaxTokens, maxTokensLimit), function(value)
-        getgenv().MapleConfig.MaxTokens = math.min(value, maxTokensLimit)
-        saveConfig()
-    end)
-else
-    -- Show locked slider for free users
-    local tokenFrame = Instance.new("Frame")
-    tokenFrame.Size = UDim2.new(1, 0, 0, 48)
-    tokenFrame.BackgroundColor3 = clr.surface
-    tokenFrame.LayoutOrder = getNextLayoutOrder(advancedTab.Name)
-    tokenFrame.Parent = advancedTab
-    createCorner(tokenFrame, 10)
-    
-    local tokenLabel = Instance.new("TextLabel")
-    tokenLabel.Size = UDim2.new(1, -80, 1, 0)
-    tokenLabel.Position = UDim2.new(0, 14, 0, 0)
-    tokenLabel.BackgroundTransparency = 1
-    tokenLabel.Text = "🔒 Max Tokens (locked: " .. USER_LIMITS.maxTokens .. ")"
-    tokenLabel.TextColor3 = clr.textTertiary
-    tokenLabel.TextSize = 13
-    tokenLabel.Font = Enum.Font.GothamMedium
-    tokenLabel.TextXAlignment = Enum.TextXAlignment.Left
-    tokenLabel.Parent = tokenFrame
-end
-
--- Temperature - restricted by tier
-if USER_LIMITS.temperatureConfigurable then
-    createSlider(advancedTab, "Temperature", 0, 1, getgenv().MapleConfig.Temperature, function(value)
-        getgenv().MapleConfig.Temperature = value
-        saveConfig()
-    end)
-else
-    local tempFrame = Instance.new("Frame")
-    tempFrame.Size = UDim2.new(1, 0, 0, 48)
-    tempFrame.BackgroundColor3 = clr.surface
-    tempFrame.LayoutOrder = getNextLayoutOrder(advancedTab.Name)
-    tempFrame.Parent = advancedTab
-    createCorner(tempFrame, 10)
-    
-    local tempLabel = Instance.new("TextLabel")
-    tempLabel.Size = UDim2.new(1, -80, 1, 0)
-    tempLabel.Position = UDim2.new(0, 14, 0, 0)
-    tempLabel.BackgroundTransparency = 1
-    tempLabel.Text = "🔒 Temperature (locked: 0.7)"
-    tempLabel.TextColor3 = clr.textTertiary
-    tempLabel.TextSize = 13
-    tempLabel.Font = Enum.Font.GothamMedium
-    tempLabel.TextXAlignment = Enum.TextXAlignment.Left
-    tempLabel.Parent = tempFrame
-end
-
--- Response Delay - restricted by tier minimum
-createSlider(advancedTab, "Response Delay (min: " .. USER_LIMITS.minResponseDelay .. "s)", USER_LIMITS.minResponseDelay, USER_LIMITS.maxResponseDelay, math.max(getgenv().MapleConfig.ResponseDelay, USER_LIMITS.minResponseDelay), function(value)
+createSlider(advancedTab, "Response Delay", USER_LIMITS.minResponseDelay, USER_LIMITS.maxResponseDelay, math.max(getgenv().MapleConfig.ResponseDelay, USER_LIMITS.minResponseDelay), function(value)
     getgenv().MapleConfig.ResponseDelay = math.max(value, USER_LIMITS.minResponseDelay)
     saveConfig()
 end)
@@ -2409,76 +1899,12 @@ createToggle(advancedTab, "Enable Anti-Spam", getgenv().MapleConfig.AntiSpam, fu
     saveConfig()
 end)
 
-if canAccessFeature("canChangeAntiSpamSettings") then
-    createSlider(advancedTab, "Spam Threshold", 2, 10, getgenv().MapleConfig.SpamThreshold, function(value)
-        getgenv().MapleConfig.SpamThreshold = value
-        saveConfig()
-    end)
-else
-    local spamFrame = Instance.new("Frame")
-    spamFrame.Size = UDim2.new(1, 0, 0, 48)
-    spamFrame.BackgroundColor3 = clr.surface
-    spamFrame.LayoutOrder = getNextLayoutOrder(advancedTab.Name)
-    spamFrame.Parent = advancedTab
-    createCorner(spamFrame, 10)
-    
-    local spamLabel = Instance.new("TextLabel")
-    spamLabel.Size = UDim2.new(1, -20, 1, 0)
-    spamLabel.Position = UDim2.new(0, 14, 0, 0)
-    spamLabel.BackgroundTransparency = 1
-    spamLabel.Text = "🔒 Spam Threshold (VIP+ required)"
-    spamLabel.TextColor3 = clr.textTertiary
-    spamLabel.TextSize = 13
-    spamLabel.Font = Enum.Font.GothamMedium
-    spamLabel.TextXAlignment = Enum.TextXAlignment.Left
-    spamLabel.Parent = spamFrame
-end
-
-createSectionLabel(advancedTab, "FRIEND SETTINGS")
-
-if canAccessFeature("canUseFriendSettings") then
-    createToggle(advancedTab, "Auto-Whitelist Friends", getgenv().MapleConfig.AutoWhitelistFriends, function(value)
-        getgenv().MapleConfig.AutoWhitelistFriends = value
-        saveConfig()
-    end)
-    
-    createToggle(advancedTab, "Prioritize Friends", getgenv().MapleConfig.PrioritizeFriends, function(value)
-        getgenv().MapleConfig.PrioritizeFriends = value
-        saveConfig()
-    end)
-else
-    local friendFrame = Instance.new("Frame")
-    friendFrame.Size = UDim2.new(1, 0, 0, 48)
-    friendFrame.BackgroundColor3 = clr.surface
-    friendFrame.LayoutOrder = getNextLayoutOrder(advancedTab.Name)
-    friendFrame.Parent = advancedTab
-    createCorner(friendFrame, 10)
-    
-    local friendLabel = Instance.new("TextLabel")
-    friendLabel.Size = UDim2.new(1, -20, 1, 0)
-    friendLabel.Position = UDim2.new(0, 14, 0, 0)
-    friendLabel.BackgroundTransparency = 1
-    friendLabel.Text = "🔒 Friend Settings (VIP+ required)"
-    friendLabel.TextColor3 = clr.textTertiary
-    friendLabel.TextSize = 13
-    friendLabel.Font = Enum.Font.GothamMedium
-    friendLabel.TextXAlignment = Enum.TextXAlignment.Left
-    friendLabel.Parent = friendFrame
-end
-
 createSectionLabel(advancedTab, "AFK SETTINGS")
 
 createInput(advancedTab, "AFK Message", "Your AFK message...", getgenv().MapleConfig.AFKMessage, false, function(text)
     getgenv().MapleConfig.AFKMessage = text
     saveConfig()
 end)
-
-createSectionLabel(advancedTab, "PREMIUM FEATURES", true)
-
-createToggle(advancedTab, "Priority Queue", getgenv().MapleConfig.PriorityQueue, function(value)
-    getgenv().MapleConfig.PriorityQueue = value
-    saveConfig()
-end, true, TIERS.PREMIUM)
 
 createToggle(advancedTab, "Auto Retry on Error", getgenv().MapleConfig.AutoRetry, function(value)
     getgenv().MapleConfig.AutoRetry = value
@@ -2487,17 +1913,13 @@ end)
 
 createSectionLabel(advancedTab, "DANGER ZONE")
 
-createButton(advancedTab, "⚠️ Reset to Defaults", function()
+createButton(advancedTab, "Reset to Defaults", function()
     for k, v in pairs(defCfg) do
         getgenv().MapleConfig[k] = v
     end
     saveConfig()
     showToast("Settings reset - reload script to apply", "warning", 4)
 end)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- CONTEXT TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
 
 createSectionLabel(contextTab, "CONTEXT SETTINGS")
 
@@ -2511,45 +1933,10 @@ createToggle(contextTab, "Show Timestamps to AI", getgenv().MapleConfig.ShowTime
     saveConfig()
 end)
 
--- Memory limits info
-createSectionLabel(contextTab, "MEMORY LIMITS (" .. USER_LIMITS.tierEmoji .. ")")
-
-local memoryInfoCard = Instance.new("Frame")
-memoryInfoCard.Size = UDim2.new(1, 0, 0, 60)
-memoryInfoCard.BackgroundColor3 = clr.surface
-memoryInfoCard.LayoutOrder = getNextLayoutOrder(contextTab.Name)
-memoryInfoCard.Parent = contextTab
-createCorner(memoryInfoCard, 10)
-
-local memInfoText = Instance.new("TextLabel")
-memInfoText.Size = UDim2.new(1, -28, 1, 0)
-memInfoText.Position = UDim2.new(0, 14, 0, 0)
-memInfoText.BackgroundTransparency = 1
-memInfoText.Text = string.format(
-    "Your Tier: %s\nContext Window: %d messages | Memory Expires: %s",
-    USER_LIMITS.tierName,
-    USER_LIMITS.contextWindowSize,
-    USER_LIMITS.unlimitedMemory and "Never" or (USER_LIMITS.memoryExpireMinutes .. " min")
-)
-memInfoText.TextColor3 = clr.textSecondary
-memInfoText.TextSize = 12
-memInfoText.Font = Enum.Font.Gotham
-memInfoText.TextXAlignment = Enum.TextXAlignment.Left
-memInfoText.Parent = memoryInfoCard
-
-if USER_LIMITS.unlimitedMemory then
-    createToggle(contextTab, "Unlimited Memory", getgenv().MapleConfig.RememberForever, function(value)
-        getgenv().MapleConfig.RememberForever = value
-        saveConfig()
-        showToast(value and "Unlimited memory enabled!" or "Using default memory", "premium")
-    end)
-end
-
 createSectionLabel(contextTab, "TIMING")
 
--- Context timeout capped by tier
 local maxTimeout = math.min(USER_LIMITS.memoryExpireMinutes, 120)
-createSlider(contextTab, "Context Timeout (max: " .. maxTimeout .. "min)", 1, maxTimeout, math.min(getgenv().MapleConfig.ContextTimeoutMinutes, maxTimeout), function(value)
+createSlider(contextTab, "Context Timeout (min)", 1, maxTimeout, math.min(getgenv().MapleConfig.ContextTimeoutMinutes, maxTimeout), function(value)
     getgenv().MapleConfig.ContextTimeoutMinutes = math.min(value, maxTimeout)
     saveConfig()
 end)
@@ -2559,41 +1946,14 @@ createSlider(contextTab, "Long Gap Threshold (min)", 1, 60, getgenv().MapleConfi
     saveConfig()
 end)
 
--- Context window size capped by tier
-if USER_LIMITS.contextWindowConfigurable then
-    local maxWindow = USER_LIMITS.contextWindowMax or USER_LIMITS.contextWindowSize
-    createSlider(contextTab, "Context Window Size (max: " .. maxWindow .. ")", 5, maxWindow, math.min(getgenv().MapleConfig.ContextWindowSize, maxWindow), function(value)
-        getgenv().MapleConfig.ContextWindowSize = math.min(value, maxWindow)
-        saveConfig()
-    end)
-else
-    local windowFrame = Instance.new("Frame")
-    windowFrame.Size = UDim2.new(1, 0, 0, 48)
-    windowFrame.BackgroundColor3 = clr.surface
-    windowFrame.LayoutOrder = getNextLayoutOrder(contextTab.Name)
-    windowFrame.Parent = contextTab
-    createCorner(windowFrame, 10)
-    
-    local windowLabel = Instance.new("TextLabel")
-    windowLabel.Size = UDim2.new(1, -20, 1, 0)
-    windowLabel.Position = UDim2.new(0, 14, 0, 0)
-    windowLabel.BackgroundTransparency = 1
-    windowLabel.Text = "🔒 Context Window (locked: " .. USER_LIMITS.contextWindowSize .. " - VIP+ to customize)"
-    windowLabel.TextColor3 = clr.textTertiary
-    windowLabel.TextSize = 13
-    windowLabel.Font = Enum.Font.GothamMedium
-    windowLabel.TextXAlignment = Enum.TextXAlignment.Left
-    windowLabel.Parent = windowFrame
-end
-
 createSectionLabel(contextTab, "MEMORY MANAGEMENT")
 
-createButton(contextTab, "🗑️ Clear All Player Memory", function()
+createButton(contextTab, "Clear All Player Memory", function()
     playerMemory = {}
     showToast("All player memory cleared", "success")
 end)
 
-createButton(contextTab, "📊 View Memory Stats", function()
+createButton(contextTab, "View Memory Stats", function()
     local totalMsgs = 0
     local playerCount = 0
     for _, data in pairs(playerMemory) do
@@ -2605,36 +1965,28 @@ createButton(contextTab, "📊 View Memory Stats", function()
     showToast(string.format("Memory: %d players, %d messages", playerCount, totalMsgs), "info", 4)
 end)
 
-createButton(contextTab, "📤 Export History", function()
-    -- Premium feature
-end, false, true, TIERS.PREMIUM)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- PERSONA TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
-
 createSectionLabel(personaTab, "SYSTEM INSTRUCTIONS")
 
+local personaInput
 if canAccessFeature("canChangePersona") then
-    local _, personaInput = createInput(personaTab, "AI Persona", "Describe how the AI should behave...", getgenv().MapleConfig.Persona, true, function(text)
+    local _, pInput = createInput(personaTab, "AI Persona", "Describe how the AI should behave...", getgenv().MapleConfig.Persona, true, function(text)
         getgenv().MapleConfig.Persona = text
         saveConfig()
         showToast("Persona updated", "success")
     end)
+    personaInput = pInput
 else
-    -- Locked persona for free users
     local personaFrame = Instance.new("Frame")
     personaFrame.Size = UDim2.new(1, 0, 0, 100)
     personaFrame.BackgroundColor3 = clr.surface
     personaFrame.LayoutOrder = getNextLayoutOrder(personaTab.Name)
     personaFrame.Parent = personaTab
     createCorner(personaFrame, 10)
-    
     local personaLock = Instance.new("TextLabel")
     personaLock.Size = UDim2.new(1, -28, 1, 0)
     personaLock.Position = UDim2.new(0, 14, 0, 0)
     personaLock.BackgroundTransparency = 1
-    personaLock.Text = "🔒 Custom Persona (VIP+ Required)\n\nUpgrade to customize how the AI responds!\nFree users can use presets below."
+    personaLock.Text = "Custom Persona (VIP+ Required)\n\nUpgrade to customize how the AI responds!\nFree users can use presets below."
     personaLock.TextColor3 = clr.textTertiary
     personaLock.TextSize = 12
     personaLock.Font = Enum.Font.Gotham
@@ -2668,32 +2020,25 @@ for _, preset in ipairs(presets) do
     btn.Parent = personaTab
     createCorner(btn, 8)
     addHoverEffect(btn, clr.surface, clr.surfaceHover)
-    
-    -- Format button text with tier indicator
     local tierIcon = ""
-    if preset.tier == TIERS.VIP then tierIcon = " 🔷"
-    elseif preset.tier == TIERS.PREMIUM then tierIcon = " 👑"
-    elseif preset.tier == TIERS.ULTIMATE then tierIcon = " 💎"
+    if preset.tier == TIERS.VIP then tierIcon = " [VIP]"
+    elseif preset.tier == TIERS.PREMIUM then tierIcon = " [PRO]"
+    elseif preset.tier == TIERS.ULTIMATE then tierIcon = " [ULT]"
     end
-    
     btn.Text = "  " .. preset.name .. tierIcon
-    
     btn.MouseButton1Click:Connect(function()
         if not hasFeatureAccess(preset.tier) then
             showPremiumPrompt(preset.name .. " Preset", preset.tier)
             return
         end
-        
-        personaInput.Text = preset.persona
+        if personaInput then
+            personaInput.Text = preset.persona
+        end
         getgenv().MapleConfig.Persona = preset.persona
         saveConfig()
         showToast("Applied: " .. preset.name, "success")
     end)
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- MODELS TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
 
 createSectionLabel(modelsTab, "FREE MODELS")
 
@@ -2702,11 +2047,10 @@ local modelButtons = {}
 local function createModelCard(model, tier, desc)
     local tierIcons = {
         [TIERS.FREE] = "",
-        [TIERS.VIP] = " 🔷",
-        [TIERS.PREMIUM] = " 👑",
-        [TIERS.ULTIMATE] = " 💎",
+        [TIERS.VIP] = " [VIP]",
+        [TIERS.PREMIUM] = " [PRO]",
+        [TIERS.ULTIMATE] = " [ULT]",
     }
-    
     local modelFrame = Instance.new("Frame")
     modelFrame.Name = "Model_" .. model
     modelFrame.Size = UDim2.new(1, 0, 0, 58)
@@ -2714,9 +2058,7 @@ local function createModelCard(model, tier, desc)
     modelFrame.LayoutOrder = getNextLayoutOrder(modelsTab.Name)
     modelFrame.Parent = modelsTab
     createCorner(modelFrame, 10)
-    
     modelButtons[model] = modelFrame
-    
     local modelName = Instance.new("TextLabel")
     modelName.Size = UDim2.new(1, -20, 0, 22)
     modelName.Position = UDim2.new(0, 14, 0, 10)
@@ -2727,7 +2069,6 @@ local function createModelCard(model, tier, desc)
     modelName.Font = Enum.Font.GothamBold
     modelName.TextXAlignment = Enum.TextXAlignment.Left
     modelName.Parent = modelFrame
-    
     local modelDesc = Instance.new("TextLabel")
     modelDesc.Size = UDim2.new(1, -20, 0, 16)
     modelDesc.Position = UDim2.new(0, 14, 0, 32)
@@ -2738,36 +2079,29 @@ local function createModelCard(model, tier, desc)
     modelDesc.Font = Enum.Font.Gotham
     modelDesc.TextXAlignment = Enum.TextXAlignment.Left
     modelDesc.Parent = modelFrame
-    
     local selectBtn = Instance.new("TextButton")
     selectBtn.Size = UDim2.new(1, 0, 1, 0)
     selectBtn.BackgroundTransparency = 1
     selectBtn.Text = ""
     selectBtn.Parent = modelFrame
-    
     selectBtn.MouseButton1Click:Connect(function()
         if not hasFeatureAccess(tier) then
             showPremiumPrompt(model, tier)
             return
         end
-        
         getgenv().MapleConfig.Model = model
         saveConfig()
-        
         for id, frame in pairs(modelButtons) do
             frame.BackgroundColor3 = clr.surface
         end
         modelFrame.BackgroundColor3 = clr.accent
-        
         showToast("Model: " .. model, "success")
     end)
-    
     selectBtn.MouseEnter:Connect(function()
         if getgenv().MapleConfig.Model ~= model then
             tweenProperty(modelFrame, {BackgroundColor3 = clr.surfaceHover}, 0.15)
         end
     end)
-    
     selectBtn.MouseLeave:Connect(function()
         if getgenv().MapleConfig.Model ~= model then
             tweenProperty(modelFrame, {BackgroundColor3 = clr.surface}, 0.15)
@@ -2775,193 +2109,27 @@ local function createModelCard(model, tier, desc)
     end)
 end
 
--- Free models
 for _, model in ipairs(FREE_MODELS) do
     createModelCard(model, TIERS.FREE, "Free tier - Available to all users")
 end
 
-createSectionLabel(modelsTab, "VIP MODELS 🔷", true)
+createSectionLabel(modelsTab, "VIP MODELS", true)
 
 for _, model in ipairs(VIP_MODELS) do
     createModelCard(model, TIERS.VIP, "VIP tier - Requires VIP access")
 end
 
-createSectionLabel(modelsTab, "PREMIUM MODELS 👑", true)
+createSectionLabel(modelsTab, "PREMIUM MODELS", true)
 
 for _, model in ipairs(PREMIUM_MODELS) do
     createModelCard(model, TIERS.PREMIUM, "Premium tier - High performance models")
 end
 
-createSectionLabel(modelsTab, "ULTIMATE MODELS 💎", true)
+createSectionLabel(modelsTab, "ULTIMATE MODELS", true)
 
 for _, model in ipairs(ULTIMATE_MODELS) do
     createModelCard(model, TIERS.ULTIMATE, "Ultimate tier - Most powerful models")
 end
-
-createSectionLabel(modelsTab, "CUSTOM MODEL")
-
-local customModelFrame = Instance.new("Frame")
-customModelFrame.Size = UDim2.new(1, 0, 0, 85)
-customModelFrame.BackgroundColor3 = clr.surface
-customModelFrame.LayoutOrder = getNextLayoutOrder(modelsTab.Name)
-customModelFrame.Parent = modelsTab
-createCorner(customModelFrame, 10)
-
-local customModelInput = Instance.new("TextBox")
-customModelInput.Size = UDim2.new(1, -28, 0, 34)
-customModelInput.Position = UDim2.new(0, 14, 0, 12)
-customModelInput.BackgroundColor3 = clr.bgTertiary
-customModelInput.Text = ""
-customModelInput.PlaceholderText = "Enter custom model ID (VIP+ only)..."
-customModelInput.TextColor3 = clr.textPrimary
-customModelInput.PlaceholderColor3 = clr.textTertiary
-customModelInput.TextSize = 13
-customModelInput.Font = Enum.Font.Gotham
-customModelInput.ClearTextOnFocus = false
-customModelInput.Parent = customModelFrame
-createCorner(customModelInput, 8)
-createPadding(customModelInput, 10)
-
-local customModelStatus = Instance.new("TextLabel")
-customModelStatus.Size = UDim2.new(1, -28, 0, 18)
-customModelStatus.Position = UDim2.new(0, 14, 0, 54)
-customModelStatus.BackgroundTransparency = 1
-customModelStatus.Text = USER_TIER >= TIERS.VIP and "Press Enter to apply" or "🔒 VIP+ required for custom models"
-customModelStatus.TextColor3 = USER_TIER >= TIERS.VIP and clr.textTertiary or clr.warning
-customModelStatus.TextSize = 11
-customModelStatus.Font = Enum.Font.Gotham
-customModelStatus.TextXAlignment = Enum.TextXAlignment.Left
-customModelStatus.Parent = customModelFrame
-
-customModelInput.FocusLost:Connect(function(enterPressed)
-    if not hasFeatureAccess(TIERS.VIP) then
-        showPremiumPrompt("Custom Model", TIERS.VIP)
-        customModelInput.Text = ""
-        return
-    end
-    
-    if enterPressed then
-        local modelId = customModelInput.Text:gsub("^%s*(.-)%s*$", "%1")
-        if modelId ~= "" and #modelId >= 3 then
-            getgenv().MapleConfig.Model = modelId
-            saveConfig()
-            
-            for id, frame in pairs(modelButtons) do
-                frame.BackgroundColor3 = clr.surface
-            end
-            customModelFrame.BackgroundColor3 = clr.accent
-            
-            customModelStatus.Text = "✓ Model set!"
-            customModelStatus.TextColor3 = clr.success
-            showToast("Custom model: " .. modelId, "success")
-        else
-            customModelStatus.Text = "Model ID too short"
-            customModelStatus.TextColor3 = clr.error
-        end
-    end
-end)
-
-createSectionLabel(modelsTab, "DEVELOPER TOOLS")
-
-createButton(modelsTab, "📋 List Available Models (Console)", function()
-    if not httpRequest then
-        showToast("No HTTP request function available", "error")
-        return
-    end
-    
-    if getgenv().MapleConfig.APIKey == "" then
-        showToast("Set your API key first", "error")
-        return
-    end
-    
-    showToast("Fetching models...", "info")
-    
-    task.spawn(function()
-        local success, result = pcall(function()
-            return httpRequest({
-                Url = API_BASE .. "/models",
-                Method = "GET",
-                Headers = {
-                    ["Authorization"] = "Bearer " .. getgenv().MapleConfig.APIKey,
-                    ["Content-Type"] = "application/json"
-                }
-            })
-        end)
-        
-        if not success or not result or not result.Body then
-            print("[🍁 Maple] Failed to fetch models")
-            showToast("Failed to fetch models", "error")
-            return
-        end
-        
-        local decodeSuccess, data = pcall(function()
-            return http:JSONDecode(result.Body)
-        end)
-        
-        if not decodeSuccess or not data then
-            print("[🍁 Maple] Failed to parse response")
-            showToast("Failed to parse response", "error")
-            return
-        end
-        
-        if data.error then
-            print("[🍁 Maple] API Error:", data.error.message or "Unknown")
-            showToast("API Error", "error")
-            return
-        end
-        
-        local modelList = data.data or data.models or data
-        if type(modelList) ~= "table" then
-            showToast("Unexpected response format", "error")
-            return
-        end
-        
-        print("\n")
-        print("╔══════════════════════════════════════════════════════════════════════════╗")
-        print("║                    🍁 MAPLE AI - AVAILABLE MODELS                        ║")
-        print("║                         " .. getTierName(USER_TIER) .. " Account                                    ║")
-        print("╠══════════════════════════════════════════════════════════════════════════╣")
-        
-        local chatModels = {}
-        
-        for _, model in ipairs(modelList) do
-            local modelId = model.id or model.name or tostring(model)
-            local lowerName = modelId:lower()
-            
-            local isChatModel = true
-            if lowerName:find("embed") or lowerName:find("whisper") or
-               lowerName:find("tts") or lowerName:find("dall") or
-               lowerName:find("image") or lowerName:find("audio") or
-               lowerName:find("moderation") then
-                isChatModel = false
-            end
-            
-            if isChatModel then
-                table.insert(chatModels, modelId)
-            end
-        end
-        
-        for i, modelId in ipairs(chatModels) do
-            local access = "✓"
-            if not canUseModel(modelId) then
-                access = "🔒"
-            end
-            print(string.format("║  [%s] %-60s ║", access, modelId))
-        end
-        
-        print("╠══════════════════════════════════════════════════════════════════════════╣")
-        print(string.format("║  Total: %d models | Accessible: Check your tier for access              ║", #chatModels))
-        print("╚══════════════════════════════════════════════════════════════════════════╝")
-        print("\n💡 TIP: Copy any model ID and paste it in the custom model field!")
-        print("🔒 = Requires higher tier | ✓ = Available\n")
-        
-        showToast(#chatModels .. " models found - check console!", "success", 4)
-    end)
-end, true)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- BLACKLIST TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
 
 createSectionLabel(blacklistTab, "ADD PLAYER")
 
@@ -3014,7 +2182,6 @@ local function refreshBlacklist()
             child:Destroy()
         end
     end
-    
     if #getgenv().MapleConfig.Blacklist == 0 then
         local emptyLabel = Instance.new("TextLabel")
         emptyLabel.Size = UDim2.new(1, 0, 0, 60)
@@ -3031,7 +2198,6 @@ local function refreshBlacklist()
             item.BackgroundColor3 = clr.surface
             item.Parent = blacklistScroll
             createCorner(item, 8)
-            
             local nameLabel = Instance.new("TextLabel")
             nameLabel.Size = UDim2.new(1, -54, 1, 0)
             nameLabel.Position = UDim2.new(0, 14, 0, 0)
@@ -3042,19 +2208,17 @@ local function refreshBlacklist()
             nameLabel.Font = Enum.Font.GothamMedium
             nameLabel.TextXAlignment = Enum.TextXAlignment.Left
             nameLabel.Parent = item
-            
             local removeBtn = Instance.new("TextButton")
             removeBtn.Size = UDim2.new(0, 40, 1, -10)
             removeBtn.Position = UDim2.new(1, -45, 0, 5)
             removeBtn.BackgroundColor3 = clr.error
             removeBtn.BackgroundTransparency = 0.8
-            removeBtn.Text = "×"
+            removeBtn.Text = "x"
             removeBtn.TextColor3 = clr.error
             removeBtn.TextSize = 18
             removeBtn.Font = Enum.Font.GothamBold
             removeBtn.Parent = item
             createCorner(removeBtn, 6)
-            
             removeBtn.MouseButton1Click:Connect(function()
                 table.remove(getgenv().MapleConfig.Blacklist, i)
                 saveConfig()
@@ -3082,10 +2246,6 @@ end)
 
 refreshBlacklist()
 
--- ════════════════════════════════════════════════════════════════════════════════
--- STATS TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
-
 createSectionLabel(statsTab, "SESSION STATISTICS")
 
 local _, msgCountLabel = createStatRow(statsTab, "Messages Received", 0)
@@ -3102,27 +2262,21 @@ createSectionLabel(statsTab, "SYSTEM INFO")
 
 local _, executorLabel = createStatRow(statsTab, "Executor", ExecutorInfo.name)
 local _, tierLabel = createStatRow(statsTab, "Account Tier", getTierName(USER_TIER))
-local _, hwLabel = createStatRow(statsTab, "HWID", USER_HWID:sub(1, 12) .. "...")
 
--- Stats update loop
 task.spawn(function()
     while gui.Parent do
         task.wait(1)
-        
         local uptime = math.floor(tick() - startTime)
         uptimeLabel.Text = formatUptime(uptime)
-        
         msgCountLabel.Text = tostring(stats.messagesReceived)
         respCountLabel.Text = tostring(stats.responsesSent)
         errCountLabel.Text = tostring(stats.errors)
         cacheHitLabel.Text = tostring(stats.cacheHits)
         apiCallLabel.Text = tostring(stats.apiCalls)
         contextSwitchLabel.Text = tostring(stats.contextSwitches)
-        
         if stats.responsesSent > 0 then
             avgTimeLabel.Text = string.format("%.0fms", stats.totalResponseTime / stats.responsesSent)
         end
-        
         local totalMsgs = 0
         local playerCount = 0
         for _, data in pairs(playerMemory) do
@@ -3134,10 +2288,6 @@ task.spawn(function()
         memoryLabel.Text = string.format("%d msgs / %d players", totalMsgs, playerCount)
     end
 end)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- PREMIUM TAB CONTENT
--- ════════════════════════════════════════════════════════════════════════════════
 
 createSectionLabel(premiumTab, "YOUR MEMBERSHIP")
 
@@ -3153,7 +2303,7 @@ local premiumBadge = Instance.new("TextLabel")
 premiumBadge.Size = UDim2.new(1, 0, 0, 50)
 premiumBadge.Position = UDim2.new(0, 0, 0, 15)
 premiumBadge.BackgroundTransparency = 1
-premiumBadge.Text = USER_TIER >= TIERS.ULTIMATE and "💎" or (USER_TIER >= TIERS.PREMIUM and "👑" or (USER_TIER >= TIERS.VIP and "🔷" or "🆓"))
+premiumBadge.Text = USER_TIER >= TIERS.ULTIMATE and "ULT" or (USER_TIER >= TIERS.PREMIUM and "PRO" or (USER_TIER >= TIERS.VIP and "VIP" or "FREE"))
 premiumBadge.TextSize = 40
 premiumBadge.Parent = premiumCard
 
@@ -3177,56 +2327,9 @@ premiumSubLabel.TextSize = 12
 premiumSubLabel.Font = Enum.Font.Gotham
 premiumSubLabel.Parent = premiumCard
 
-createSectionLabel(premiumTab, "TIER BENEFITS")
-
-local tiers = {
-    {name = "FREE", tier = TIERS.FREE, features = {"Basic AI Models", "10 Context Messages", "Standard Cache", "Basic Presets"}},
-    {name = "VIP", tier = TIERS.VIP, features = {"+ VIP Models (GPT-4o, Claude Haiku)", "+ Custom Models", "+ Sarcastic Preset", "+ Priority Support"}},
-    {name = "PREMIUM", tier = TIERS.PREMIUM, features = {"+ Premium Models (GPT-4, Claude Sonnet)", "+ Unlimited Memory", "+ Custom Themes", "+ Webhooks", "+ Export History"}},
-    {name = "ULTIMATE", tier = TIERS.ULTIMATE, features = {"+ Ultimate Models (Claude Opus)", "+ All Presets", "+ Voice Mode (Soon)", "+ Beta Features"}},
-}
-
-for _, tierInfo in ipairs(tiers) do
-    local tierFrame = Instance.new("Frame")
-    tierFrame.Size = UDim2.new(1, 0, 0, 30 + #tierInfo.features * 22)
-    tierFrame.BackgroundColor3 = USER_TIER >= tierInfo.tier and clr.accent or clr.surface
-    tierFrame.BackgroundTransparency = USER_TIER >= tierInfo.tier and 0.85 or 0
-    tierFrame.LayoutOrder = getNextLayoutOrder(premiumTab.Name)
-    tierFrame.Parent = premiumTab
-    createCorner(tierFrame, 10)
-    
-    if USER_TIER >= tierInfo.tier then
-        createStroke(tierFrame, getTierColor(tierInfo.tier), 2, 0.3)
-    end
-    
-    local tierTitle = Instance.new("TextLabel")
-    tierTitle.Size = UDim2.new(1, -20, 0, 26)
-    tierTitle.Position = UDim2.new(0, 14, 0, 6)
-    tierTitle.BackgroundTransparency = 1
-    tierTitle.Text = tierInfo.name .. (USER_TIER >= tierInfo.tier and " ✓" or "")
-    tierTitle.TextColor3 = getTierColor(tierInfo.tier)
-    tierTitle.TextSize = 14
-    tierTitle.Font = Enum.Font.GothamBold
-    tierTitle.TextXAlignment = Enum.TextXAlignment.Left
-    tierTitle.Parent = tierFrame
-    
-    for i, feature in ipairs(tierInfo.features) do
-        local featureLabel = Instance.new("TextLabel")
-        featureLabel.Size = UDim2.new(1, -30, 0, 20)
-        featureLabel.Position = UDim2.new(0, 20, 0, 26 + (i - 1) * 22)
-        featureLabel.BackgroundTransparency = 1
-        featureLabel.Text = feature
-        featureLabel.TextColor3 = clr.textSecondary
-        featureLabel.TextSize = 11
-        featureLabel.Font = Enum.Font.Gotham
-        featureLabel.TextXAlignment = Enum.TextXAlignment.Left
-        featureLabel.Parent = tierFrame
-    end
-end
-
 createSectionLabel(premiumTab, "GET PREMIUM")
 
-createButton(premiumTab, "📱 Contact " .. DISCORD_CONTACT, function()
+createButton(premiumTab, "Contact " .. DISCORD_CONTACT, function()
     if setclipboard then
         setclipboard(DISCORD_CONTACT)
         showToast("Discord copied to clipboard!", "success")
@@ -3238,100 +2341,11 @@ createButton(premiumTab, "📱 Contact " .. DISCORD_CONTACT, function()
     end
 end, true)
 
--- ════════════════════════════════════════════════════════════════════════════════
--- THEMES TAB CONTENT (Premium)
--- ════════════════════════════════════════════════════════════════════════════════
-
-createSectionLabel(themesTab, "THEME SELECTION 👑")
-
-local themeList = {
-    {id = "default", name = "Default Purple", tier = TIERS.FREE},
-    {id = "ocean", name = "Ocean Blue", tier = TIERS.PREMIUM},
-    {id = "sunset", name = "Sunset Orange", tier = TIERS.PREMIUM},
-    {id = "midnight", name = "Midnight", tier = TIERS.ULTIMATE},
-}
-
-for _, theme in ipairs(themeList) do
-    local themeBtn = Instance.new("TextButton")
-    themeBtn.Size = UDim2.new(1, 0, 0, 50)
-    themeBtn.BackgroundColor3 = THEMES[theme.id].accent
-    themeBtn.BackgroundTransparency = 0.7
-    themeBtn.Text = ""
-    themeBtn.LayoutOrder = getNextLayoutOrder(themesTab.Name)
-    themeBtn.Parent = themesTab
-    createCorner(themeBtn, 10)
-    
-    if getgenv().MapleConfig.CustomTheme == theme.id then
-        createStroke(themeBtn, clr.textPrimary, 2, 0)
-    end
-    
-    local themeName = Instance.new("TextLabel")
-    themeName.Size = UDim2.new(1, -60, 1, 0)
-    themeName.Position = UDim2.new(0, 14, 0, 0)
-    themeName.BackgroundTransparency = 1
-    themeName.Text = theme.name .. (theme.tier > TIERS.FREE and " 👑" or "")
-    themeName.TextColor3 = THEMES[theme.id].textPrimary
-    themeName.TextSize = 14
-    themeName.Font = Enum.Font.GothamBold
-    themeName.TextXAlignment = Enum.TextXAlignment.Left
-    themeName.Parent = themeBtn
-    
-    local themePreview = Instance.new("Frame")
-    themePreview.Size = UDim2.new(0, 30, 0, 30)
-    themePreview.Position = UDim2.new(1, -44, 0.5, -15)
-    themePreview.BackgroundColor3 = THEMES[theme.id].accent
-    themePreview.Parent = themeBtn
-    createCorner(themePreview, 6)
-    
-    themeBtn.MouseButton1Click:Connect(function()
-        if not hasFeatureAccess(theme.tier) then
-            showPremiumPrompt(theme.name .. " Theme", theme.tier)
-            return
-        end
-        
-        getgenv().MapleConfig.CustomTheme = theme.id
-        saveConfig()
-        showToast("Theme changed! Reload script to apply.", "success", 4)
-    end)
-end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- WEBHOOKS TAB CONTENT (Premium)
--- ════════════════════════════════════════════════════════════════════════════════
-
-createSectionLabel(webhooksTab, "DISCORD WEBHOOKS 👑")
-
-createToggle(webhooksTab, "Enable Webhook Logging", getgenv().MapleConfig.WebhookEnabled, function(value)
-    getgenv().MapleConfig.WebhookEnabled = value
-    saveConfig()
-end, true, TIERS.PREMIUM)
-
-createInput(webhooksTab, "Webhook URL", "https://discord.com/api/webhooks/...", getgenv().MapleConfig.WebhookURL, false, function(text)
-    getgenv().MapleConfig.WebhookURL = text
-    saveConfig()
-end, true, TIERS.PREMIUM)
-
-createButton(webhooksTab, "🧪 Test Webhook", function()
-    showToast("Webhook test sent!", "success")
-end, false, true, TIERS.PREMIUM)
-
-createSectionLabel(webhooksTab, "LOG SETTINGS")
-
-createToggle(webhooksTab, "Log All Messages", false, function(value) end, true, TIERS.PREMIUM)
-createToggle(webhooksTab, "Log Errors Only", false, function(value) end, true, TIERS.PREMIUM)
-createToggle(webhooksTab, "Include Player Info", false, function(value) end, true, TIERS.PREMIUM)
-
--- ════════════════════════════════════════════════════════════════════════════════
--- WINDOW CONTROLS
--- ════════════════════════════════════════════════════════════════════════════════
-
 local isMinimized = false
 
 fabButton.MouseButton1Click:Connect(function()
     if isDraggingFab() then return end
-    
     mainWindow.Visible = not mainWindow.Visible
-    
     if mainWindow.Visible then
         mainWindow.Size = UDim2.new(0, 620, 0, 0)
         mainWindow.BackgroundTransparency = 1
@@ -3354,14 +2368,9 @@ minBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Select first tab
 tabButtons["Home"].MouseButton1Click:Fire()
 updateStatusDot()
 updateHomeStatus()
-
--- ════════════════════════════════════════════════════════════════════════════════
--- CHAT SYSTEM
--- ════════════════════════════════════════════════════════════════════════════════
 
 local sayRemote = nil
 pcall(function()
@@ -3373,13 +2382,10 @@ end)
 
 local function sendMessage(message)
     if not message or message == "" then return false end
-    
     if #message > MAX_MSG_LENGTH then
         message = message:sub(1, MAX_MSG_LENGTH - 3) .. "..."
     end
-    
     local success = false
-    
     pcall(function()
         if tcs and tcs.TextChannels then
             local channel = tcs.TextChannels:FindFirstChild("RBXGeneral")
@@ -3389,44 +2395,34 @@ local function sendMessage(message)
             end
         end
     end)
-    
     if not success and sayRemote then
         pcall(function()
             sayRemote:FireServer(message, "All")
             success = true
         end)
     end
-    
     return success
 end
 
 local function getPlayerDistance(character)
     if not character then return 999999 end
-    
     local myCharacter = lp.Character
     if not myCharacter then return 999999 end
-    
     local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
     if not myRoot then return 999999 end
-    
     local theirRoot = character:FindFirstChild("HumanoidRootPart")
     if not theirRoot then return 999999 end
-    
     return (theirRoot.Position - myRoot.Position).Magnitude
 end
 
 local function facePlayer(character)
     if not character then return end
-    
     local myCharacter = lp.Character
     if not myCharacter then return end
-    
     local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
-    
     local theirRoot = character:FindFirstChild("HumanoidRootPart")
     if not theirRoot then return end
-    
     pcall(function()
         local direction = (theirRoot.Position - myRoot.Position).Unit
         local lookAt = CFrame.lookAt(myRoot.Position, myRoot.Position + direction)
@@ -3443,15 +2439,12 @@ end
 
 local function isSpamming(player, message)
     if not getgenv().MapleConfig.AntiSpam then return false end
-    
     local userId = player.UserId
     if not spamTracker[userId] then
         spamTracker[userId] = {}
     end
-    
     local now = tick()
     local cooldown = getgenv().MapleConfig.SpamCooldown or 30
-    
     local cleanedEntries = {}
     for _, entry in ipairs(spamTracker[userId]) do
         if now - entry.time < cooldown then
@@ -3459,23 +2452,19 @@ local function isSpamming(player, message)
         end
     end
     spamTracker[userId] = cleanedEntries
-    
     local count = 0
     for _, entry in ipairs(spamTracker[userId]) do
         if entry.message == message then
             count = count + 1
         end
     end
-    
     table.insert(spamTracker[userId], {message = message, time = now})
-    
     return count >= getgenv().MapleConfig.SpamThreshold
 end
 
 local function shouldRespondToMessage(player, message)
     local cfg = getgenv().MapleConfig
     local mode = cfg.TriggerMode
-    
     if mode == "all" then
         return true
     elseif mode == "mention" then
@@ -3486,13 +2475,8 @@ local function shouldRespondToMessage(player, message)
     elseif mode == "prefix" then
         return message:sub(1, #cfg.TriggerPrefix):lower() == cfg.TriggerPrefix:lower()
     end
-    
     return true
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- RESPONSE CACHE (LRU)
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function getCacheKey(message)
     return message:lower():gsub("%s+", " "):gsub("[^%w%s]", "")
@@ -3501,10 +2485,8 @@ end
 local function checkCache(message)
     local key = getCacheKey(message)
     local entry = responseCache[key]
-    
     if entry and tick() - entry.timestamp < CACHE_TTL then
         stats.cacheHits = stats.cacheHits + 1
-        
         for i, k in ipairs(cacheOrder) do
             if k == key then
                 table.remove(cacheOrder, i)
@@ -3512,21 +2494,17 @@ local function checkCache(message)
             end
         end
         table.insert(cacheOrder, key)
-        
         return entry.response
     end
-    
     return nil
 end
 
 local function addToCache(message, response)
     local key = getCacheKey(message)
-    
     while #cacheOrder >= CACHE_MAX_SIZE do
         local oldKey = table.remove(cacheOrder, 1)
         responseCache[oldKey] = nil
     end
-    
     responseCache[key] = {
         response = response,
         timestamp = tick()
@@ -3534,13 +2512,8 @@ local function addToCache(message, response)
     table.insert(cacheOrder, key)
 end
 
--- ════════════════════════════════════════════════════════════════════════════════
--- CONTEXT & MEMORY SYSTEM
--- ════════════════════════════════════════════════════════════════════════════════
-
 local function getPlayerMemory(player)
     local userId = tostring(player.UserId)
-    
     if not playerMemory[userId] then
         playerMemory[userId] = {
             displayName = player.DisplayName,
@@ -3550,28 +2523,23 @@ local function getPlayerMemory(player)
             totalMessages = 0,
         }
     end
-    
     return playerMemory[userId]
 end
 
 local function addMessageToMemory(player, message, role)
     local memory = getPlayerMemory(player)
     local now = tick()
-    
     table.insert(memory.messages, {
         role = role,
         content = message,
         timestamp = now,
     })
-    
     memory.lastInteraction = now
     memory.totalMessages = memory.totalMessages + 1
-    
     local maxMessages = MAX_MEMORY_SIZE
     if getgenv().MapleConfig.RememberForever and USER_TIER >= TIERS.PREMIUM then
         maxMessages = 9999
     end
-    
     while #memory.messages > maxMessages do
         table.remove(memory.messages, 1)
     end
@@ -3581,7 +2549,6 @@ local function buildContextMessages(player, currentMessage)
     local cfg = getgenv().MapleConfig
     local memory = getPlayerMemory(player)
     local messages = {}
-    
     local systemPrompt = cfg.Persona .. "\n\n"
     systemPrompt = systemPrompt .. "CONTEXT:\n"
     systemPrompt = systemPrompt .. "- You are chatting in a Roblox game\n"
@@ -3590,7 +2557,6 @@ local function buildContextMessages(player, currentMessage)
     systemPrompt = systemPrompt .. "- Keep responses SHORT (under 200 characters for Roblox chat)\n"
     systemPrompt = systemPrompt .. "- Be natural and conversational\n"
     systemPrompt = systemPrompt .. "- Don't use markdown or special formatting\n"
-    
     if cfg.SmartContextEnabled and #memory.messages > 0 then
         local timeSinceLastMsg = tick() - memory.lastInteraction
         if timeSinceLastMsg > (cfg.LongGapMinutes or 5) * 60 then
@@ -3598,15 +2564,12 @@ local function buildContextMessages(player, currentMessage)
             stats.contextSwitches = stats.contextSwitches + 1
         end
     end
-    
     table.insert(messages, {
         role = "system",
         content = systemPrompt
     })
-    
     local windowSize = cfg.ContextWindowSize or 10
     local startIdx = math.max(1, #memory.messages - windowSize + 1)
-    
     for i = startIdx, #memory.messages do
         local msg = memory.messages[i]
         if cfg.ShowTimestamps then
@@ -3622,84 +2585,58 @@ local function buildContextMessages(player, currentMessage)
             })
         end
     end
-    
     table.insert(messages, {
         role = "user",
         content = currentMessage
     })
-    
     return messages
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- API REQUEST FUNCTION
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function makeAPIRequest(messages, retryCount)
     retryCount = retryCount or 0
     local cfg = getgenv().MapleConfig
-    
     if not httpRequest then
         return nil, "No HTTP request function available"
     end
-    
-    -- Use shared API key instead of user's key
     local apiKey = SHARED_API_KEY
     if apiKey == "" or apiKey == "YOUR_API_KEY_HERE" then
         return nil, "API not configured (contact admin)"
     end
-    
     local now = tick()
-    
-    -- Per-minute rate limit
     if now > rateLimitTracker.resetTime then
         rateLimitTracker.count = 0
         rateLimitTracker.resetTime = now + RATE_LIMIT_WINDOW
     end
-    
     if rateLimitTracker.count >= USER_LIMITS.requestsPerMinute then
         local waitTime = math.ceil(rateLimitTracker.resetTime - now)
-        return nil, "Rate limit! Wait " .. waitTime .. "s (limit: " .. USER_LIMITS.requestsPerMinute .. "/min)"
+        return nil, "Rate limit! Wait " .. waitTime .. "s"
     end
-    
-    -- Per-hour rate limit
     if now > rateLimitHourly.resetTime then
         rateLimitHourly.count = 0
-        rateLimitHourly.resetTime = now + 3600 -- 1 hour
+        rateLimitHourly.resetTime = now + 3600
     end
-    
     if rateLimitHourly.count >= USER_LIMITS.requestsPerHour then
         local waitTime = math.ceil((rateLimitHourly.resetTime - now) / 60)
-        return nil, "Hourly limit reached! Wait " .. waitTime .. " min (limit: " .. USER_LIMITS.requestsPerHour .. "/hr)"
+        return nil, "Hourly limit reached! Wait " .. waitTime .. " min"
     end
-    
-    -- Per-day rate limit
     if now > rateLimitDaily.resetTime then
         rateLimitDaily.count = 0
-        -- Reset at midnight (approximate)
-        rateLimitDaily.resetTime = now + 86400 -- 24 hours
+        rateLimitDaily.resetTime = now + 86400
     end
-    
     if rateLimitDaily.count >= USER_LIMITS.requestsPerDay then
-        return nil, "Daily limit reached! (limit: " .. USER_LIMITS.requestsPerDay .. "/day) - Upgrade for more!"
+        return nil, "Daily limit reached!"
     end
-    
-    -- Increment all counters
     rateLimitTracker.count = rateLimitTracker.count + 1
     rateLimitHourly.count = rateLimitHourly.count + 1
     rateLimitDaily.count = rateLimitDaily.count + 1
     stats.apiCalls = stats.apiCalls + 1
-    
-    -- Enforce max tokens limit
     local maxTokens = math.min(cfg.MaxTokens, USER_LIMITS.maxTokens)
-    
     local requestBody = {
         model = cfg.Model,
         messages = messages,
         max_tokens = maxTokens,
         temperature = cfg.Temperature,
     }
-    
     local success, result = pcall(function()
         return httpRequest({
             Url = API_BASE .. "/chat/completions",
@@ -3711,142 +2648,101 @@ local function makeAPIRequest(messages, retryCount)
             Body = http:JSONEncode(requestBody)
         })
     end)
-    
     if not success then
         log("HTTP request failed:", result)
-        
         if cfg.AutoRetry and retryCount < (cfg.MaxRetries or MAX_RETRIES) then
             task.wait(1 * (retryCount + 1))
             return makeAPIRequest(messages, retryCount + 1)
         end
-        
         return nil, "HTTP request failed: " .. tostring(result)
     end
-    
     if not result or not result.Body then
         return nil, "Empty response from API"
     end
-    
     local decodeSuccess, data = pcall(function()
         return http:JSONDecode(result.Body)
     end)
-    
     if not decodeSuccess then
         return nil, "Failed to parse API response"
     end
-    
     if data.error then
         local errorMsg = data.error.message or "Unknown API error"
         log("API error:", errorMsg)
-        
         if cfg.AutoRetry and retryCount < (cfg.MaxRetries or MAX_RETRIES) then
             if errorMsg:lower():find("rate") or errorMsg:lower():find("overload") then
                 task.wait(2 * (retryCount + 1))
                 return makeAPIRequest(messages, retryCount + 1)
             end
         end
-        
         return nil, errorMsg
     end
-    
     if data.choices and data.choices[1] and data.choices[1].message then
         return data.choices[1].message.content, nil
     end
-    
     return nil, "Unexpected API response format"
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- MESSAGE PROCESSING
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function processMessage(player, message)
     local cfg = getgenv().MapleConfig
     local processStartTime = tick()
-    
     stats.messagesReceived = stats.messagesReceived + 1
     log("Processing message from", player.Name, ":", message)
-    
     if cfg.AFKMode then
         task.wait(cfg.ResponseDelay or 0.5)
         sendMessage(cfg.AFKMessage)
         stats.responsesSent = stats.responsesSent + 1
         return
     end
-    
     local cachedResponse = checkCache(message)
     if cachedResponse then
         log("Cache hit!")
         addMessageToMemory(player, message, "user")
         addMessageToMemory(player, cachedResponse, "assistant")
-        
         task.wait(cfg.ResponseDelay or 0.5)
         sendMessage(cachedResponse)
         stats.responsesSent = stats.responsesSent + 1
-        
         local elapsed = (tick() - processStartTime) * 1000
         stats.totalResponseTime = stats.totalResponseTime + elapsed
         return
     end
-    
     local contextMessages = buildContextMessages(player, message)
-    
     local response, err = makeAPIRequest(contextMessages)
-    
     if err then
         logError("API request failed:", err)
         stats.errors = stats.errors + 1
         showToast("API Error: " .. err:sub(1, 50), "error")
         return
     end
-    
     if response then
         response = response:gsub("^%s*(.-)%s*$", "%1")
         response = response:gsub("\n", " ")
-        
         if #response > MAX_MSG_LENGTH then
             response = response:sub(1, MAX_MSG_LENGTH - 3) .. "..."
         end
-        
         addMessageToMemory(player, message, "user")
         addMessageToMemory(player, response, "assistant")
-        
         addToCache(message, response)
-        
         task.wait(cfg.ResponseDelay or 0.5)
-        
         if player.Character then
             facePlayer(player.Character)
         end
-        
         sendMessage(response)
         stats.responsesSent = stats.responsesSent + 1
-        
         local elapsed = (tick() - processStartTime) * 1000
         stats.totalResponseTime = stats.totalResponseTime + elapsed
         log("Response sent in", string.format("%.0f", elapsed), "ms")
     end
 end
 
--- ════════════════════════════════════════════════════════════════════════════════
--- CHAT MESSAGE HANDLER
--- ════════════════════════════════════════════════════════════════════════════════
-
 local function onChatMessage(player, message)
     local cfg = getgenv().MapleConfig
-    
-    -- Log player to webhook (always, regardless of AI being enabled)
     logPlayerToWebhook(player)
-    
     if not cfg.MasterEnabled then return end
-    
     if player == lp then return end
-    
     if table.find(cfg.Blacklist, player.Name) or table.find(cfg.Blacklist, player.DisplayName) then
         log("Ignored blacklisted player:", player.Name)
         return
     end
-    
     if #cfg.Whitelist > 0 then
         local whitelisted = table.find(cfg.Whitelist, player.Name) or
                            table.find(cfg.Whitelist, player.DisplayName) or
@@ -3856,7 +2752,6 @@ local function onChatMessage(player, message)
             return
         end
     end
-    
     if cfg.Range > 0 then
         local distance = getPlayerDistance(player.Character)
         if distance > cfg.Range then
@@ -3864,36 +2759,26 @@ local function onChatMessage(player, message)
             return
         end
     end
-    
     if not shouldRespondToMessage(player, message) then
         log("Message didn't match trigger mode")
         return
     end
-    
     if isSpamming(player, message) then
         log("Spam detected from:", player.Name)
         return
     end
-    
     task.spawn(function()
         processing = true
-        
         local success, err = pcall(function()
             processMessage(player, message)
         end)
-        
         if not success then
             logError("Error processing message:", err)
             stats.errors = stats.errors + 1
         end
-        
         processing = false
     end)
 end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- CONNECT CHAT LISTENERS
--- ════════════════════════════════════════════════════════════════════════════════
 
 local function setupChatListeners()
     pcall(function()
@@ -3910,7 +2795,6 @@ local function setupChatListeners()
             log("Connected to TextChatService")
         end
     end)
-    
     pcall(function()
         for _, player in ipairs(plrs:GetPlayers()) do
             if player ~= lp then
@@ -3921,7 +2805,6 @@ local function setupChatListeners()
                 end)
             end
         end
-        
         addConnection(plrs.PlayerAdded:Connect(function(player)
             if player ~= lp then
                 pcall(function()
@@ -3931,20 +2814,14 @@ local function setupChatListeners()
                 end)
             end
         end), "PlayerAddedListener")
-        
         log("Connected to legacy chat")
     end)
 end
 
 setupChatListeners()
 
--- ════════════════════════════════════════════════════════════════════════════════
--- KEYBIND
--- ════════════════════════════════════════════════════════════════════════════════
-
 addConnection(uis.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    
     if input.KeyCode == Enum.KeyCode.RightShift then
         mainWindow.Visible = not mainWindow.Visible
         if mainWindow.Visible then
@@ -3954,10 +2831,6 @@ addConnection(uis.InputBegan:Connect(function(input, gameProcessed)
     end
 end), "KeybindListener")
 
--- ════════════════════════════════════════════════════════════════════════════════
--- STARTUP
--- ════════════════════════════════════════════════════════════════════════════════
-
 local tierAnnouncement = {
     [TIERS.FREE] = {"Welcome!", "info"},
     [TIERS.VIP] = {"VIP Member! Enjoy exclusive features.", "premium"},
@@ -3966,52 +2839,44 @@ local tierAnnouncement = {
 }
 
 local announcement = tierAnnouncement[USER_TIER]
-showToast("🍁 Maple AI v6.0 - " .. getTierName(USER_TIER), announcement[2], 4)
+showToast("Maple AI v6.0 - " .. getTierName(USER_TIER), announcement[2], 4)
 
 print("\n")
-print("╔══════════════════════════════════════════════════════════════════════════╗")
-print("║              🍁 MAPLE AI v6.0 ULTIMATE - LOADED                          ║")
-print("╠══════════════════════════════════════════════════════════════════════════╣")
-print("║  Account: " .. string.format("%-62s", lp.DisplayName .. " (" .. getTierName(USER_TIER) .. ")") .. "║")
-print("║  Executor: " .. string.format("%-61s", ExecutorInfo.name) .. "║")
-print("╠══════════════════════════════════════════════════════════════════════════╣")
-print("║  • Click the 🍁 button or press RightShift to open                       ║")
-print("║  • API is pre-configured - just enable AI to start!                      ║")
-print("║  • Enable AI in Home tab to start responding                             ║")
-print("║  • Contact " .. string.format("%-20s", DISCORD_CONTACT) .. " for Premium access                      ║")
-print("╚══════════════════════════════════════════════════════════════════════════╝")
+print("========================================")
+print("  MAPLE AI v6.0 ULTIMATE - LOADED")
+print("========================================")
+print("  Account: " .. lp.DisplayName .. " (" .. getTierName(USER_TIER) .. ")")
+print("  Executor: " .. ExecutorInfo.name)
+print("========================================")
+print("  Press RightShift or click M button")
+print("  to open the settings panel")
+print("========================================")
 print("\n")
 
-end) -- End of pcall wrapper
+end)
 
--- Handle any errors that occurred during loading
 if not success then
-    warn("[🍁 Maple AI] Failed to load: " .. tostring(errorMsg))
-    -- Try to show error in game
+    warn("[Maple AI] Failed to load: " .. tostring(errorMsg))
     pcall(function()
         local gui = Instance.new("ScreenGui")
         gui.Name = "MapleAI_Error"
         gui.Parent = game:GetService("CoreGui")
-        
         local errorFrame = Instance.new("Frame")
         errorFrame.Size = UDim2.new(0, 400, 0, 150)
         errorFrame.Position = UDim2.new(0.5, -200, 0.5, -75)
         errorFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         errorFrame.Parent = gui
-        
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 12)
         corner.Parent = errorFrame
-        
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1, 0, 0, 40)
         title.BackgroundTransparency = 1
-        title.Text = "🍁 Maple AI - Error"
+        title.Text = "Maple AI - Error"
         title.TextColor3 = Color3.fromRGB(255, 100, 100)
         title.TextSize = 18
         title.Font = Enum.Font.GothamBold
         title.Parent = errorFrame
-        
         local errText = Instance.new("TextLabel")
         errText.Size = UDim2.new(1, -20, 1, -50)
         errText.Position = UDim2.new(0, 10, 0, 40)
@@ -4023,12 +2888,10 @@ if not success then
         errText.TextWrapped = true
         errText.TextYAlignment = Enum.TextYAlignment.Top
         errText.Parent = errorFrame
-        
         task.delay(10, function()
             gui:Destroy()
         end)
     end)
 end
 
--- Return success status for loadstring
 return success
