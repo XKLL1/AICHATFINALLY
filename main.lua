@@ -9,7 +9,7 @@ local tcs = game:GetService("TextChatService")
 
 local lp = plrs.LocalPlayer
 
-local SCRIPT_VERSION = "6.2.0"
+local SCRIPT_VERSION = "6.3.0"
 local BUILD_TYPE = "MOBILE"
 
 local SHARED_API_KEY = "sk-mapleai-1CgWDOBjGiMlKD9GEySEuStZDUs4EUgd17hAamhToNAe33aXTBhi7LyA7ZTeSVcW4P6k52aYkcbDt2BY"
