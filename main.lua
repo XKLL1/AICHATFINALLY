@@ -187,12 +187,6 @@ fabButton.InputEnded:Connect(function(input)
     end
 end)
 
-fabButton.Activated:Connect(function()
-    if not fabMoved then
-        mainWindow.Visible = not mainWindow.Visible
-    end
-end)
-
 addConnection(uis.InputChanged:Connect(function(input)
     if fabDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
         local delta = input.Position - fabDragStart
@@ -223,6 +217,12 @@ mainWindow.BackgroundColor3 = clr.bg
 mainWindow.Visible = false
 mainWindow.Parent = gui
 createCorner(mainWindow, 16)
+
+fabButton.Activated:Connect(function()
+    if not fabMoved then
+        mainWindow.Visible = not mainWindow.Visible
+    end
+end)
 
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 50)
