@@ -79,6 +79,8 @@ local spamTracker = {}
 local responseCache = {}
 local cacheOrder = {}
 local rateLimitTracker = { count = 0, resetTime = 0 }
+local recentlySent = {}
+local lastSentTime = 0
 
 local stats = { messagesReceived = 0, responsesSent = 0, errors = 0, cacheHits = 0, apiCalls = 0 }
 local connections = {}
@@ -721,6 +723,11 @@ end)
 local function sendMessage(message)
     if not message or message == "" then return false end
     if #message > MAX_MSG_LENGTH then message = message:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
+    
+    table.insert(recentlySent, {msg = message:lower(), time = tick()})
+    while #recentlySent > 20 do table.remove(recentlySent, 1) end
+    lastSentTime = tick()
+    
     local success = false
     pcall(function()
         if tcs and tcs.TextChannels then
@@ -933,10 +940,31 @@ local function processMsg(player, message)
     end
 end
 
+local function isSelfMessage(message)
+    if tick() - lastSentTime < 2 then return true end
+    
+    local msgLower = message:lower()
+    local now = tick()
+    for i = #recentlySent, 1, -1 do
+        local entry = recentlySent[i]
+        if now - entry.time > 30 then break end
+        if entry.msg == msgLower then return true end
+        if msgLower:find(entry.msg:sub(1, 30), 1, true) then return true end
+        if entry.msg:find(msgLower:sub(1, 30), 1, true) then return true end
+    end
+    return false
+end
+
 local function onChat(player, message)
     local cfg = getgenv().MapleConfig
     if not cfg.MasterEnabled then return end
     if player == lp then return end
+    
+    if isSelfMessage(message) then
+        log("Ignored self-message:", message:sub(1, 30))
+        return
+    end
+    
     if table.find(cfg.Blacklist, player.Name) or table.find(cfg.Blacklist, player.DisplayName) then return end
     if cfg.Range > 0 and getPlayerDistance(player.Character) > cfg.Range then return end
     if not shouldRespond(player, message) then return end
