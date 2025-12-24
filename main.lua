@@ -9,7 +9,7 @@ local tcs = game:GetService("TextChatService")
 
 local lp = plrs.LocalPlayer
 
-local SCRIPT_VERSION = "6.3.0"
+local SCRIPT_VERSION = "6.2.0"
 local BUILD_TYPE = "MOBILE"
 
 local SHARED_API_KEY = "sk-mapleai-1CgWDOBjGiMlKD9GEySEuStZDUs4EUgd17hAamhToNAe33aXTBhi7LyA7ZTeSVcW4P6k52aYkcbDt2BY"
@@ -184,16 +184,19 @@ end)
 fabButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         fabDragging = false
-        if not fabMoved then
-            mainWindow.Visible = not mainWindow.Visible
-        end
+    end
+end)
+
+fabButton.Activated:Connect(function()
+    if not fabMoved then
+        mainWindow.Visible = not mainWindow.Visible
     end
 end)
 
 addConnection(uis.InputChanged:Connect(function(input)
     if fabDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
         local delta = input.Position - fabDragStart
-        if delta.Magnitude > 5 then fabMoved = true end
+        if delta.Magnitude > 15 then fabMoved = true end
         fab.Position = UDim2.new(
             fabStartPos.X.Scale, fabStartPos.X.Offset + delta.X,
             fabStartPos.Y.Scale, fabStartPos.Y.Offset + delta.Y
