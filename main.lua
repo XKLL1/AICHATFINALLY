@@ -81,6 +81,7 @@ local cacheOrder = {}
 local rateLimitTracker = { count = 0, resetTime = 0 }
 local recentlySent = {}
 local lastSentTime = 0
+local processedMessages = {}
 
 local stats = { messagesReceived = 0, responsesSent = 0, errors = 0, cacheHits = 0, apiCalls = 0 }
 local connections = {}
@@ -165,6 +166,40 @@ fabButton.Size = UDim2.new(1, 0, 1, 0)
 fabButton.BackgroundTransparency = 1
 fabButton.Text = ""
 fabButton.Parent = fab
+
+local fabDragging = false
+local fabDragStart = nil
+local fabStartPos = nil
+local fabMoved = false
+
+fabButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        fabDragging = true
+        fabMoved = false
+        fabDragStart = input.Position
+        fabStartPos = fab.Position
+    end
+end)
+
+fabButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        fabDragging = false
+        if not fabMoved then
+            mainWindow.Visible = not mainWindow.Visible
+        end
+    end
+end)
+
+addConnection(uis.InputChanged:Connect(function(input)
+    if fabDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - fabDragStart
+        if delta.Magnitude > 5 then fabMoved = true end
+        fab.Position = UDim2.new(
+            fabStartPos.X.Scale, fabStartPos.X.Offset + delta.X,
+            fabStartPos.Y.Scale, fabStartPos.Y.Offset + delta.Y
+        )
+    end
+end), "fabDrag")
 
 local statusDot = Instance.new("Frame")
 statusDot.Size = UDim2.new(0, 20, 0, 20)
@@ -706,9 +741,6 @@ end)
 
 updateStatus()
 
-fabButton.MouseButton1Click:Connect(function()
-    mainWindow.Visible = not mainWindow.Visible
-end)
 
 closeBtn.MouseButton1Click:Connect(function()
     mainWindow.Visible = false
@@ -959,6 +991,18 @@ local function onChat(player, message)
     local cfg = getgenv().MapleConfig
     if not cfg.MasterEnabled then return end
     if player == lp then return end
+    
+    local msgKey = player.UserId .. "_" .. message:sub(1, 50)
+    local now = tick()
+    
+    if processedMessages[msgKey] and now - processedMessages[msgKey] < 5 then
+        return
+    end
+    processedMessages[msgKey] = now
+    
+    for key, time in pairs(processedMessages) do
+        if now - time > 10 then processedMessages[key] = nil end
+    end
     
     if isSelfMessage(message) then
         log("Ignored self-message:", message:sub(1, 30))
