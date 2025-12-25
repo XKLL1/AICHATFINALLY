@@ -9,7 +9,7 @@ local tcs = game:GetService("TextChatService")
 
 local lp = plrs.LocalPlayer
 
-local SCRIPT_VERSION = "6.2.0"
+local SCRIPT_VERSION = "7.0.0"
 local BUILD_TYPE = "MOBILE"
 
 local SHARED_API_KEY = "sk-mapleai-1CgWDOBjGiMlKD9GEySEuStZDUs4EUgd17hAamhToNAe33aXTBhi7LyA7ZTeSVcW4P6k52aYkcbDt2BY"
@@ -33,6 +33,8 @@ local defCfg = {
     Persona = "Brief Roblox AI. Max 1-2 sentences.",
     Model = "gpt-4o-mini",
     Blacklist = {},
+    Whitelist = {},
+    WhitelistMode = false,
     DebugMode = false,
     Range = 0,
     TriggerMode = "all",
@@ -46,6 +48,12 @@ local defCfg = {
     SpamThreshold = 3,
     SpamCooldown = 30,
     ContextWindowSize = 3,
+    ResponseLength = "medium",
+    IgnoreWords = {},
+    AutoGreet = false,
+    AutoGreetMessage = "Hey {player}! Welcome!",
+    HumanTyping = false,
+    TypingSpeed = 0.05,
 }
 
 getgenv().MapleConfig = getgenv().MapleConfig or {}
@@ -87,6 +95,8 @@ local processedMessages = {}
 
 local stats = { messagesReceived = 0, responsesSent = 0, errors = 0, cacheHits = 0, apiCalls = 0 }
 local connections = {}
+local chatHistory = {}
+local MAX_CHAT_HISTORY = 50
 
 local function addConnection(conn, name)
     if conn then
@@ -581,10 +591,65 @@ createToggle("AFK Mode", getgenv().MapleConfig.AFKMode, function(v)
     updateStatus()
 end)
 
+createToggle("Auto Greet Players", getgenv().MapleConfig.AutoGreet, function(v)
+    getgenv().MapleConfig.AutoGreet = v
+    saveConfig()
+end)
+
+createInput("Greet Message ({player})", "{player} = their name", getgenv().MapleConfig.AutoGreetMessage, function(v)
+    getgenv().MapleConfig.AutoGreetMessage = v
+    saveConfig()
+end)
+
+createSection("QUICK REPLIES")
+
+local quickReplies = {
+    {"brb", "brb"},
+    {"lol", "lol"},
+    {"gg", "gg"},
+    {"nice", "nice!"},
+    {"?", "?"},
+    {"wow", "wow"},
+}
+
+local quickReplyFrame = Instance.new("Frame")
+quickReplyFrame.Size = UDim2.new(1, 0, 0, 50)
+quickReplyFrame.BackgroundColor3 = clr.surface
+quickReplyFrame.LayoutOrder = nextOrder()
+quickReplyFrame.Parent = contentScroll
+createCorner(quickReplyFrame, 10)
+
+local quickLayout = Instance.new("UIListLayout")
+quickLayout.FillDirection = Enum.FillDirection.Horizontal
+quickLayout.Padding = UDim.new(0, 6)
+quickLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+quickLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+quickLayout.Parent = quickReplyFrame
+
+for _, qr in ipairs(quickReplies) do
+    local qBtn = Instance.new("TextButton")
+    qBtn.Size = UDim2.new(0, 45, 0, 34)
+    qBtn.BackgroundColor3 = clr.bgSecondary
+    qBtn.Text = qr[1]
+    qBtn.TextColor3 = clr.textPrimary
+    qBtn.TextSize = 11
+    qBtn.Font = Enum.Font.GothamBold
+    qBtn.Parent = quickReplyFrame
+    createCorner(qBtn, 8)
+    qBtn.MouseButton1Click:Connect(function()
+        sendMessage(qr[2])
+    end)
+end
+
 createSection("SETTINGS")
 
-createDropdown("Trigger Mode", {"all", "mention", "prefix"}, getgenv().MapleConfig.TriggerMode, function(v)
+createDropdown("Trigger Mode", {"all", "mention", "prefix", "whitelist"}, getgenv().MapleConfig.TriggerMode, function(v)
     getgenv().MapleConfig.TriggerMode = v
+    saveConfig()
+end)
+
+createDropdown("Response Length", {"short", "medium", "long"}, getgenv().MapleConfig.ResponseLength, function(v)
+    getgenv().MapleConfig.ResponseLength = v
     saveConfig()
 end)
 
@@ -598,6 +663,78 @@ end)
 createSlider("Response Delay", 0.1, 5, getgenv().MapleConfig.ResponseDelay, function(v)
     getgenv().MapleConfig.ResponseDelay = v
     saveConfig()
+end)
+
+createToggle("Human Typing", getgenv().MapleConfig.HumanTyping, function(v)
+    getgenv().MapleConfig.HumanTyping = v
+    saveConfig()
+end)
+
+createSlider("Typing Speed", 0.01, 0.15, getgenv().MapleConfig.TypingSpeed, function(v)
+    getgenv().MapleConfig.TypingSpeed = v
+    saveConfig()
+end)
+
+createSection("WHITELIST")
+
+local whitelistInput
+local _, whitelistBox = createInput("Add to Whitelist", "Enter display name...", "", function(v)
+    if v and v ~= "" then
+        if not table.find(getgenv().MapleConfig.Whitelist, v) then
+            table.insert(getgenv().MapleConfig.Whitelist, v)
+            saveConfig()
+        end
+        whitelistBox.Text = ""
+    end
+end)
+whitelistBox = whitelistBox
+
+local whitelistLabel = Instance.new("TextLabel")
+whitelistLabel.Size = UDim2.new(1, 0, 0, 40)
+whitelistLabel.BackgroundTransparency = 1
+whitelistLabel.Text = "Whitelist: " .. (#getgenv().MapleConfig.Whitelist > 0 and table.concat(getgenv().MapleConfig.Whitelist, ", ") or "empty")
+whitelistLabel.TextColor3 = clr.textSecondary
+whitelistLabel.TextSize = 10
+whitelistLabel.TextWrapped = true
+whitelistLabel.Font = Enum.Font.Gotham
+whitelistLabel.LayoutOrder = nextOrder()
+whitelistLabel.Parent = contentScroll
+
+createButton("Clear Whitelist", function()
+    getgenv().MapleConfig.Whitelist = {}
+    saveConfig()
+    whitelistLabel.Text = "Whitelist: empty"
+end)
+
+createSection("IGNORE WORDS")
+
+local ignoreInput
+local _, ignoreBox = createInput("Add Ignore Word", "Won't respond if msg contains...", "", function(v)
+    if v and v ~= "" then
+        if not table.find(getgenv().MapleConfig.IgnoreWords, v:lower()) then
+            table.insert(getgenv().MapleConfig.IgnoreWords, v:lower())
+            saveConfig()
+        end
+        ignoreBox.Text = ""
+    end
+end)
+ignoreBox = ignoreBox
+
+local ignoreLabel = Instance.new("TextLabel")
+ignoreLabel.Size = UDim2.new(1, 0, 0, 40)
+ignoreLabel.BackgroundTransparency = 1
+ignoreLabel.Text = "Ignored: " .. (#getgenv().MapleConfig.IgnoreWords > 0 and table.concat(getgenv().MapleConfig.IgnoreWords, ", ") or "none")
+ignoreLabel.TextColor3 = clr.textSecondary
+ignoreLabel.TextSize = 10
+ignoreLabel.TextWrapped = true
+ignoreLabel.Font = Enum.Font.Gotham
+ignoreLabel.LayoutOrder = nextOrder()
+ignoreLabel.Parent = contentScroll
+
+createButton("Clear Ignore Words", function()
+    getgenv().MapleConfig.IgnoreWords = {}
+    saveConfig()
+    ignoreLabel.Text = "Ignored: none"
 end)
 
 createSection("AI MODEL")
@@ -695,6 +832,11 @@ createSlider("Max Tokens", 50, 500, getgenv().MapleConfig.MaxTokens, function(v)
     saveConfig()
 end)
 
+createSlider("Temperature", 0, 1, getgenv().MapleConfig.Temperature, function(v)
+    getgenv().MapleConfig.Temperature = v
+    saveConfig()
+end)
+
 createSection("PERSONA")
 
 local _, personaInput = createInput("AI Persona", "How should AI behave...", getgenv().MapleConfig.Persona, function(v)
@@ -720,11 +862,63 @@ end
 
 createSection("MEMORY")
 
-createButton("Clear History", function()
+createButton("Clear Memory", function()
     playerMemory = {}
     responseCache = {}
     cacheOrder = {}
 end, true)
+
+createSection("CHAT HISTORY")
+
+local historyScroll = Instance.new("ScrollingFrame")
+historyScroll.Size = UDim2.new(1, 0, 0, 120)
+historyScroll.BackgroundColor3 = clr.surface
+historyScroll.ScrollBarThickness = 3
+historyScroll.ScrollBarImageColor3 = clr.accent
+historyScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+historyScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+historyScroll.LayoutOrder = nextOrder()
+historyScroll.Parent = contentScroll
+createCorner(historyScroll, 10)
+
+local historyLayout = Instance.new("UIListLayout")
+historyLayout.Padding = UDim.new(0, 2)
+historyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+historyLayout.Parent = historyScroll
+
+local historyPad = Instance.new("UIPadding")
+historyPad.PaddingLeft = UDim.new(0, 8)
+historyPad.PaddingRight = UDim.new(0, 8)
+historyPad.PaddingTop = UDim.new(0, 6)
+historyPad.PaddingBottom = UDim.new(0, 6)
+historyPad.Parent = historyScroll
+
+local function updateHistoryUI()
+    for _, child in ipairs(historyScroll:GetChildren()) do
+        if child:IsA("TextLabel") then child:Destroy() end
+    end
+    for i = math.max(1, #chatHistory - 20), #chatHistory do
+        local entry = chatHistory[i]
+        if entry then
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, 0, 0, 16)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = (entry.isMe and "You: " or entry.player .. ": ") .. entry.msg
+            lbl.TextColor3 = entry.isMe and clr.accent or clr.textSecondary
+            lbl.TextSize = 9
+            lbl.TextWrapped = true
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Font = Enum.Font.Gotham
+            lbl.LayoutOrder = i
+            lbl.Parent = historyScroll
+        end
+    end
+end
+
+createButton("Clear Chat History", function()
+    chatHistory = {}
+    updateHistoryUI()
+end)
 
 createSection("INFO")
 
@@ -759,14 +953,7 @@ pcall(function()
     if defaultChat then sayRemote = defaultChat:FindFirstChild("SayMessageRequest") end
 end)
 
-local function sendMessage(message)
-    if not message or message == "" then return false end
-    if #message > MAX_MSG_LENGTH then message = message:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
-    
-    table.insert(recentlySent, {msg = message:lower(), time = tick()})
-    while #recentlySent > 20 do table.remove(recentlySent, 1) end
-    lastSentTime = tick()
-    
+local function sendMessageRaw(message)
     local success = false
     pcall(function()
         if tcs and tcs.TextChannels then
@@ -778,6 +965,28 @@ local function sendMessage(message)
         pcall(function() sayRemote:FireServer(message, "All") success = true end)
     end
     return success
+end
+
+local function sendMessage(message)
+    if not message or message == "" then return false end
+    if #message > MAX_MSG_LENGTH then message = message:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
+    
+    table.insert(recentlySent, {msg = message:lower(), time = tick()})
+    while #recentlySent > 20 do table.remove(recentlySent, 1) end
+    lastSentTime = tick()
+    
+    table.insert(chatHistory, {player = "You", msg = message, isMe = true, time = tick()})
+    while #chatHistory > MAX_CHAT_HISTORY do table.remove(chatHistory, 1) end
+    pcall(updateHistoryUI)
+    
+    if getgenv().MapleConfig.HumanTyping then
+        local typingDelay = getgenv().MapleConfig.TypingSpeed or 0.05
+        local totalDelay = #message * typingDelay
+        totalDelay = math.min(totalDelay, 3)
+        task.wait(totalDelay)
+    end
+    
+    return sendMessageRaw(message)
 end
 
 local function getPlayerDistance(character)
@@ -877,16 +1086,31 @@ local function isSpamming(player, message)
     return count >= getgenv().MapleConfig.SpamThreshold
 end
 
+local function containsIgnoreWord(message)
+    local lower = message:lower()
+    for _, word in ipairs(getgenv().MapleConfig.IgnoreWords or {}) do
+        if lower:find(word, 1, true) then return true end
+    end
+    return false
+end
+
 local function shouldRespond(player, message)
-    local mode = getgenv().MapleConfig.TriggerMode
+    local cfg = getgenv().MapleConfig
+    local mode = cfg.TriggerMode
+    
+    if containsIgnoreWord(message) then return false end
+    
     if mode == "all" then return true end
     if mode == "mention" then
         local lower = message:lower()
         return lower:find("maple") or lower:find(lp.Name:lower()) or lower:find(lp.DisplayName:lower())
     end
     if mode == "prefix" then
-        local prefix = getgenv().MapleConfig.TriggerPrefix
+        local prefix = cfg.TriggerPrefix
         return message:sub(1, #prefix):lower() == prefix:lower()
+    end
+    if mode == "whitelist" then
+        return table.find(cfg.Whitelist, player.Name) or table.find(cfg.Whitelist, player.DisplayName)
     end
     return true
 end
@@ -968,9 +1192,19 @@ local function buildMessages(player, currentMsg)
         gossipStr = " Past convos you remember: " .. table.concat(gossipParts, "; ") .. "."
     end
     
+    local lengthInstruction = ""
+    local respLen = cfg.ResponseLength or "medium"
+    if respLen == "short" then
+        lengthInstruction = " Keep responses under 50 chars, super brief."
+    elseif respLen == "long" then
+        lengthInstruction = " You can write longer responses, 2-3 sentences."
+    else
+        lengthInstruction = " Keep it 1-2 sentences max."
+    end
+    
     local myName = lp.DisplayName
     local speakerName = player.DisplayName
-    local sys = cfg.Persona .. " [CONTEXT] You are " .. myName .. ". The person messaging you RIGHT NOW is named \"" .. speakerName .. "\". If your persona mentions anyone by name (like a friend, partner, etc) and that name matches \"" .. speakerName .. "\" or anyone nearby, THEY ARE THE SAME PERSON - react accordingly! Other players here: " .. playersStr .. "." .. gossipStr .. " <200chars no markdown"
+    local sys = cfg.Persona .. " [CONTEXT] You are " .. myName .. ". The person messaging you RIGHT NOW is named \"" .. speakerName .. "\". If your persona mentions anyone by name (like a friend, partner, etc) and that name matches \"" .. speakerName .. "\" or anyone nearby, THEY ARE THE SAME PERSON - react accordingly! Other players here: " .. playersStr .. "." .. gossipStr .. lengthInstruction .. " No markdown"
     table.insert(messages, {role = "system", content = sys})
     
     local windowSize = math.min(cfg.ContextWindowSize or 3, 5)
@@ -994,13 +1228,6 @@ local function makeRequest(messages)
     if SHARED_API_KEY == "" or SHARED_API_KEY == "YOUR_API_KEY_HERE" then return nil, "NO_KEY" end
     if not messages or #messages == 0 then return nil, "NO_MESSAGES" end
     
-    local now = tick()
-    if now > rateLimitTracker.resetTime then
-        rateLimitTracker.count = 0
-        rateLimitTracker.resetTime = now + 60
-    end
-    if rateLimitTracker.count >= 30 then return nil, "LOCAL_RATE_LIMIT" end
-    rateLimitTracker.count = rateLimitTracker.count + 1
     stats.apiCalls = stats.apiCalls + 1
     
     local maxTok = cfg.MaxTokens or 80
@@ -1104,6 +1331,10 @@ local function onChat(player, message)
     if not cfg.MasterEnabled then return end
     if player == lp then return end
     
+    table.insert(chatHistory, {player = player.DisplayName, msg = message, isMe = false, time = tick()})
+    while #chatHistory > MAX_CHAT_HISTORY do table.remove(chatHistory, 1) end
+    pcall(updateHistoryUI)
+    
     local msgKey = player.UserId .. "_" .. message:sub(1, 50)
     local now = tick()
     
@@ -1133,6 +1364,18 @@ local function onChat(player, message)
     end)
 end
 
+local function greetPlayer(player)
+    if not getgenv().MapleConfig.AutoGreet then return end
+    if not getgenv().MapleConfig.MasterEnabled then return end
+    if player == lp then return end
+    
+    task.delay(2, function()
+        local greetMsg = getgenv().MapleConfig.AutoGreetMessage or "Hey {player}!"
+        greetMsg = greetMsg:gsub("{player}", player.DisplayName)
+        sendMessage(greetMsg)
+    end)
+end
+
 local function setupListeners()
     pcall(function()
         if tcs then
@@ -1155,6 +1398,7 @@ local function setupListeners()
         addConnection(plrs.PlayerAdded:Connect(function(player)
             if player ~= lp then
                 addConnection(player.Chatted:Connect(function(m) onChat(player, m) end), "Chat_" .. player.UserId)
+                greetPlayer(player)
             end
         end), "PlayerAdded")
     end)
