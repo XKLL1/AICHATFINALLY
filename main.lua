@@ -72,9 +72,11 @@ local MAX_MSG_LENGTH = 200
 local CACHE_MAX_SIZE = 100
 local CACHE_TTL = 300
 local MAX_MEMORY_SIZE = 20
+local MAX_GOSSIP_ITEMS = 3
 
 local processing = false
 local playerMemory = {}
+local knownPlayers = {}
 local spamTracker = {}
 local responseCache = {}
 local cacheOrder = {}
@@ -586,8 +588,10 @@ createDropdown("Trigger Mode", {"all", "mention", "prefix"}, getgenv().MapleConf
     saveConfig()
 end)
 
-createSlider("Range (0=∞)", 0, 300, getgenv().MapleConfig.Range, function(v)
-    getgenv().MapleConfig.Range = v
+createInput("Range in studs (0=∞)", "0 = unlimited", tostring(getgenv().MapleConfig.Range), function(v)
+    local num = tonumber(v) or 0
+    if num < 0 then num = 0 end
+    getgenv().MapleConfig.Range = num
     saveConfig()
 end)
 
@@ -783,8 +787,78 @@ local function getPlayerDistance(character)
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     local theirRoot = character:FindFirstChild("HumanoidRootPart")
     if not myRoot or not theirRoot then return 999999 end
-    return (theirRoot.Position - myRoot.Position).Magnitude
+    local myPos = myRoot.Position
+    local theirPos = theirRoot.Position
+    local dx = theirPos.X - myPos.X
+    local dz = theirPos.Z - myPos.Z
+    return math.sqrt(dx * dx + dz * dz)
 end
+
+local function updateKnownPlayers()
+    knownPlayers = {}
+    for _, player in ipairs(plrs:GetPlayers()) do
+        knownPlayers[tostring(player.UserId)] = {
+            name = player.Name,
+            displayName = player.DisplayName,
+            isLocal = (player == lp)
+        }
+    end
+end
+
+local function getKnownPlayersList()
+    local list = {}
+    for uid, info in pairs(knownPlayers) do
+        if not info.isLocal then
+            table.insert(list, info.displayName)
+        end
+    end
+    return list
+end
+
+local function getGossipMemories(excludePlayerId)
+    local gossip = {}
+    local excludeUid = tostring(excludePlayerId)
+    
+    for uid, mem in pairs(playerMemory) do
+        if uid ~= excludeUid and mem.msgs and #mem.msgs > 0 then
+            local interestingMsgs = {}
+            for _, m in ipairs(mem.msgs) do
+                if m.role == "user" and #m.content > 10 then
+                    table.insert(interestingMsgs, {
+                        player = mem.name,
+                        content = m.content,
+                        ts = m.ts or 0
+                    })
+                end
+            end
+            for _, msg in ipairs(interestingMsgs) do
+                table.insert(gossip, msg)
+            end
+        end
+    end
+    
+    table.sort(gossip, function(a, b) return a.ts > b.ts end)
+    
+    local result = {}
+    for i = 1, math.min(#gossip, MAX_GOSSIP_ITEMS) do
+        table.insert(result, gossip[i])
+    end
+    return result
+end
+
+updateKnownPlayers()
+
+addConnection(plrs.PlayerAdded:Connect(function(player)
+    knownPlayers[tostring(player.UserId)] = {
+        name = player.Name,
+        displayName = player.DisplayName,
+        isLocal = (player == lp)
+    }
+end), "KnownPlayersAdd")
+
+addConnection(plrs.PlayerRemoving:Connect(function(player)
+    knownPlayers[tostring(player.UserId)] = nil
+end), "KnownPlayersRemove")
 
 local function isSpamming(player, message)
     if not getgenv().MapleConfig.AntiSpam then return false end
@@ -844,7 +918,13 @@ end
 local function getMemory(player)
     local uid = tostring(player.UserId)
     if not playerMemory[uid] then
-        playerMemory[uid] = {name = player.DisplayName, msgs = {}, last = tick()}
+        playerMemory[uid] = {
+            name = player.DisplayName,
+            username = player.Name,
+            msgs = {},
+            topics = {},
+            last = tick()
+        }
     end
     return playerMemory[uid]
 end
@@ -853,7 +933,19 @@ local function addToMemory(player, msg, role)
     local mem = getMemory(player)
     table.insert(mem.msgs, {role = role, content = msg, ts = tick()})
     mem.last = tick()
+    
+    if role == "user" then
+        local lower = msg:lower()
+        if lower:find("like") or lower:find("love") or lower:find("hate") or lower:find("favorite") then
+            table.insert(mem.topics, {type = "preference", content = msg, ts = tick()})
+        end
+        if lower:find("play") or lower:find("game") or lower:find("doing") then
+            table.insert(mem.topics, {type = "activity", content = msg, ts = tick()})
+        end
+    end
+    
     while #mem.msgs > MAX_MEMORY_SIZE do table.remove(mem.msgs, 1) end
+    while #mem.topics > 10 do table.remove(mem.topics, 1) end
 end
 
 local function buildMessages(player, currentMsg)
@@ -861,7 +953,22 @@ local function buildMessages(player, currentMsg)
     local mem = getMemory(player)
     local messages = {}
     
-    local sys = cfg.Persona .. " Player:" .. player.DisplayName .. " <200chars no markdown"
+    local playerList = getKnownPlayersList()
+    local playersStr = #playerList > 0 and table.concat(playerList, ", ") or "none"
+    
+    local gossip = getGossipMemories(player.UserId)
+    local gossipStr = ""
+    if #gossip > 0 then
+        local gossipParts = {}
+        for _, g in ipairs(gossip) do
+            local snippet = g.content
+            if #snippet > 40 then snippet = snippet:sub(1, 37) .. "..." end
+            table.insert(gossipParts, g.player .. " said: \"" .. snippet .. "\"")
+        end
+        gossipStr = " Recent memories from others: " .. table.concat(gossipParts, "; ")
+    end
+    
+    local sys = cfg.Persona .. " Talking to: " .. player.DisplayName .. ". Players here: " .. playersStr .. "." .. gossipStr .. " <200chars no markdown"
     table.insert(messages, {role = "system", content = sys})
     
     local windowSize = math.min(cfg.ContextWindowSize or 3, 5)
