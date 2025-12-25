@@ -954,7 +954,7 @@ local function buildMessages(player, currentMsg)
     local messages = {}
     
     local playerList = getKnownPlayersList()
-    local playersStr = #playerList > 0 and table.concat(playerList, ", ") or "none"
+    local playersStr = #playerList > 0 and table.concat(playerList, ", ") or "just you two"
     
     local gossip = getGossipMemories(player.UserId)
     local gossipStr = ""
@@ -963,12 +963,13 @@ local function buildMessages(player, currentMsg)
         for _, g in ipairs(gossip) do
             local snippet = g.content
             if #snippet > 40 then snippet = snippet:sub(1, 37) .. "..." end
-            table.insert(gossipParts, g.player .. " said: \"" .. snippet .. "\"")
+            table.insert(gossipParts, g.player .. ": \"" .. snippet .. "\"")
         end
-        gossipStr = " Recent memories from others: " .. table.concat(gossipParts, "; ")
+        gossipStr = " You remember hearing: " .. table.concat(gossipParts, "; ") .. "."
     end
     
-    local sys = cfg.Persona .. " Talking to: " .. player.DisplayName .. ". Players here: " .. playersStr .. "." .. gossipStr .. " <200chars no markdown"
+    local myName = lp.DisplayName
+    local sys = cfg.Persona .. " You are " .. myName .. " in Roblox. Currently talking to " .. player.DisplayName .. ". Other players nearby: " .. playersStr .. "." .. gossipStr .. " You know everyone's names. Feel free to mention other players or past convos naturally. <200chars no markdown"
     table.insert(messages, {role = "system", content = sys})
     
     local windowSize = math.min(cfg.ContextWindowSize or 3, 5)
