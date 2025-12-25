@@ -9,7 +9,7 @@ local tcs = game:GetService("TextChatService")
 
 local lp = plrs.LocalPlayer
 
-local SCRIPT_VERSION = "7.0.0"
+local SCRIPT_VERSION = "7.1.0"
 local BUILD_TYPE = "MOBILE"
 
 local SHARED_API_KEY = "sk-mapleai-1CgWDOBjGiMlKD9GEySEuStZDUs4EUgd17hAamhToNAe33aXTBhi7LyA7ZTeSVcW4P6k52aYkcbDt2BY"
@@ -37,7 +37,7 @@ local defCfg = {
     WhitelistMode = false,
     DebugMode = false,
     Range = 0,
-    TriggerMode = "all",
+    TriggerMode = "smart",
     TriggerPrefix = "@maple",
     ResponseDelay = 0.1,
     MaxTokens = 80,
@@ -643,7 +643,7 @@ end
 
 createSection("SETTINGS")
 
-createDropdown("Trigger Mode", {"all", "mention", "prefix", "whitelist"}, getgenv().MapleConfig.TriggerMode, function(v)
+createDropdown("Trigger Mode", {"smart", "all", "mention", "prefix", "whitelist"}, getgenv().MapleConfig.TriggerMode, function(v)
     getgenv().MapleConfig.TriggerMode = v
     saveConfig()
 end)
@@ -1003,6 +1003,94 @@ local function getPlayerDistance(character)
     return math.sqrt(dx * dx + dz * dz)
 end
 
+local function isPlayerLookingAtMe(player)
+    local myChar = lp.Character
+    local theirChar = player.Character
+    if not myChar or not theirChar then return false, 0 end
+    
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    local theirRoot = theirChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not theirRoot then return false, 0 end
+    
+    local toMe = (myRoot.Position - theirRoot.Position).Unit
+    local theirLook = theirRoot.CFrame.LookVector
+    
+    local dot = toMe:Dot(theirLook)
+    local isLooking = dot > 0.5
+    return isLooking, dot
+end
+
+local function getNearbyPlayersCount()
+    local count = 0
+    local myChar = lp.Character
+    if not myChar then return 0 end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return 0 end
+    
+    for _, player in ipairs(plrs:GetPlayers()) do
+        if player ~= lp and player.Character then
+            local dist = getPlayerDistance(player.Character)
+            if dist < 50 then
+                count = count + 1
+            end
+        end
+    end
+    return count
+end
+
+local function getConversationContext(player)
+    local mem = playerMemory[tostring(player.UserId)]
+    if not mem or not mem.msgs or #mem.msgs == 0 then
+        return "no prior conversation"
+    end
+    
+    local lastMsg = mem.msgs[#mem.msgs]
+    local timeSince = tick() - (lastMsg.ts or 0)
+    
+    if timeSince < 30 then
+        return "active conversation (replied " .. math.floor(timeSince) .. "s ago)"
+    elseif timeSince < 120 then
+        return "recent conversation"
+    else
+        return "old conversation"
+    end
+end
+
+local function buildContextualInfo(player, message)
+    local info = {}
+    
+    local distance = getPlayerDistance(player.Character)
+    local isLooking, lookDot = isPlayerLookingAtMe(player)
+    local nearbyCount = getNearbyPlayersCount()
+    local convoContext = getConversationContext(player)
+    
+    table.insert(info, "Distance: " .. math.floor(distance) .. " studs")
+    table.insert(info, "Looking at you: " .. (isLooking and "YES" or "no") .. " (confidence: " .. math.floor(lookDot * 100) .. "%)")
+    table.insert(info, "Players nearby: " .. nearbyCount)
+    table.insert(info, "Conversation status: " .. convoContext)
+    
+    local msgLower = message:lower()
+    local directCues = {}
+    if msgLower:find("you") or msgLower:find("u ") or msgLower:find(" u$") then
+        table.insert(directCues, "uses 'you'")
+    end
+    if msgLower:find("?") then
+        table.insert(directCues, "question")
+    end
+    if msgLower:find(lp.DisplayName:lower()) or msgLower:find(lp.Name:lower()) then
+        table.insert(directCues, "mentions your name")
+    end
+    if msgLower:find("hey") or msgLower:find("hi ") or msgLower:find("hello") or msgLower:find("yo ") then
+        table.insert(directCues, "greeting")
+    end
+    
+    if #directCues > 0 then
+        table.insert(info, "Message cues: " .. table.concat(directCues, ", "))
+    end
+    
+    return table.concat(info, "; ")
+end
+
 local function updateKnownPlayers()
     knownPlayers = {}
     for _, player in ipairs(plrs:GetPlayers()) do
@@ -1172,7 +1260,7 @@ local function addToMemory(player, msg, role)
     while #mem.topics > 10 do table.remove(mem.topics, 1) end
 end
 
-local function buildMessages(player, currentMsg)
+local function buildMessages(player, currentMsg, smartMode)
     local cfg = getgenv().MapleConfig
     local mem = getMemory(player)
     local messages = {}
@@ -1202,9 +1290,16 @@ local function buildMessages(player, currentMsg)
         lengthInstruction = " Keep it 1-2 sentences max."
     end
     
+    local contextualInfo = ""
+    local smartInstruction = ""
+    if smartMode then
+        contextualInfo = " [SITUATION] " .. buildContextualInfo(player, currentMsg)
+        smartInstruction = " IMPORTANT: Based on the situation context, decide if this message is directed at you. If it clearly isn't meant for you (talking to someone else, general statement to room, etc), respond with just [IGNORE] and nothing else. Only respond normally if the message seems directed at you."
+    end
+    
     local myName = lp.DisplayName
     local speakerName = player.DisplayName
-    local sys = cfg.Persona .. " [CONTEXT] You are " .. myName .. ". The person messaging you RIGHT NOW is named \"" .. speakerName .. "\". If your persona mentions anyone by name (like a friend, partner, etc) and that name matches \"" .. speakerName .. "\" or anyone nearby, THEY ARE THE SAME PERSON - react accordingly! Other players here: " .. playersStr .. "." .. gossipStr .. lengthInstruction .. " No markdown"
+    local sys = cfg.Persona .. " [CONTEXT] You are " .. myName .. ". The person messaging you RIGHT NOW is named \"" .. speakerName .. "\". If your persona mentions anyone by name (like a friend, partner, etc) and that name matches \"" .. speakerName .. "\" or anyone nearby, THEY ARE THE SAME PERSON - react accordingly! Other players here: " .. playersStr .. "." .. gossipStr .. contextualInfo .. smartInstruction .. lengthInstruction .. " No markdown"
     table.insert(messages, {role = "system", content = sys})
     
     local windowSize = math.min(cfg.ContextWindowSize or 3, 5)
@@ -1262,7 +1357,7 @@ local function makeRequest(messages)
     return nil, "NO_RESPONSE"
 end
 
-local function processMsg(player, message)
+local function processMsg(player, message, smartMode)
     local cfg = getgenv().MapleConfig
     stats.messagesReceived = stats.messagesReceived + 1
     
@@ -1277,17 +1372,19 @@ local function processMsg(player, message)
     message = message:gsub("^%s+", ""):gsub("%s+$", "")
     if #message == 0 then return end
     
-    local cached = checkCache(message)
-    if cached then
-        addToMemory(player, message, "user")
-        addToMemory(player, cached, "assistant")
-        task.wait(cfg.ResponseDelay or 0.1)
-        sendMessage(cached)
-        stats.responsesSent = stats.responsesSent + 1
-        return
+    if not smartMode then
+        local cached = checkCache(message)
+        if cached then
+            addToMemory(player, message, "user")
+            addToMemory(player, cached, "assistant")
+            task.wait(cfg.ResponseDelay or 0.1)
+            sendMessage(cached)
+            stats.responsesSent = stats.responsesSent + 1
+            return
+        end
     end
     
-    local msgs = buildMessages(player, message)
+    local msgs = buildMessages(player, message, smartMode)
     local resp, err = makeRequest(msgs)
     
     if err then
@@ -1298,12 +1395,20 @@ local function processMsg(player, message)
     if resp then
         resp = tostring(resp):gsub("^%s+", ""):gsub("%s+$", ""):gsub("\n+", " "):gsub("%s+", " ")
         resp = resp:gsub("[%*#`]", "")
+        
+        if resp:upper():find("%[IGNORE%]") or resp:upper() == "IGNORE" then
+            log("AI decided to ignore message from", player.DisplayName)
+            return
+        end
+        
         if #resp == 0 then return end
         if #resp > MAX_MSG_LENGTH then resp = resp:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
         
         addToMemory(player, message, "user")
         addToMemory(player, resp, "assistant")
-        addToCache(message, resp)
+        if not smartMode then
+            addToCache(message, resp)
+        end
         
         task.wait(cfg.ResponseDelay or 0.1)
         if sendMessage(resp) then stats.responsesSent = stats.responsesSent + 1
@@ -1354,12 +1459,15 @@ local function onChat(player, message)
     
     if table.find(cfg.Blacklist, player.Name) or table.find(cfg.Blacklist, player.DisplayName) then return end
     if cfg.Range > 0 and getPlayerDistance(player.Character) > cfg.Range then return end
-    if not shouldRespond(player, message) then return end
     if isSpamming(player, message) then return end
+    
+    local smartMode = cfg.TriggerMode == "smart"
+    
+    if not smartMode and not shouldRespond(player, message) then return end
     
     task.spawn(function()
         processing = true
-        pcall(function() processMsg(player, message) end)
+        pcall(function() processMsg(player, message, smartMode) end)
         processing = false
     end)
 end
