@@ -954,7 +954,7 @@ local function buildMessages(player, currentMsg)
     local messages = {}
     
     local playerList = getKnownPlayersList()
-    local playersStr = #playerList > 0 and table.concat(playerList, ", ") or "just you two"
+    local playersStr = #playerList > 0 and table.concat(playerList, ", ") or "none"
     
     local gossip = getGossipMemories(player.UserId)
     local gossipStr = ""
@@ -965,11 +965,12 @@ local function buildMessages(player, currentMsg)
             if #snippet > 40 then snippet = snippet:sub(1, 37) .. "..." end
             table.insert(gossipParts, g.player .. ": \"" .. snippet .. "\"")
         end
-        gossipStr = " You remember hearing: " .. table.concat(gossipParts, "; ") .. "."
+        gossipStr = " Past convos you remember: " .. table.concat(gossipParts, "; ") .. "."
     end
     
     local myName = lp.DisplayName
-    local sys = cfg.Persona .. " You are " .. myName .. " in Roblox. Currently talking to " .. player.DisplayName .. ". Other players nearby: " .. playersStr .. "." .. gossipStr .. " You know everyone's names. Feel free to mention other players or past convos naturally. <200chars no markdown"
+    local speakerName = player.DisplayName
+    local sys = cfg.Persona .. " [CONTEXT] You are " .. myName .. ". The person messaging you RIGHT NOW is named \"" .. speakerName .. "\". If your persona mentions anyone by name (like a friend, partner, etc) and that name matches \"" .. speakerName .. "\" or anyone nearby, THEY ARE THE SAME PERSON - react accordingly! Other players here: " .. playersStr .. "." .. gossipStr .. " <200chars no markdown"
     table.insert(messages, {role = "system", content = sys})
     
     local windowSize = math.min(cfg.ContextWindowSize or 3, 5)
