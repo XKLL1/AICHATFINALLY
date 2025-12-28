@@ -12,7 +12,7 @@ local lp = plrs.LocalPlayer
 local SCRIPT_VERSION = "7.1.0"
 local BUILD_TYPE = "MOBILE"
 
-local SHARED_API_KEY = "sk-mapleai-1CgWDOBjGiMlKD9GEySEuStZDUs4EUgd17hAamhToNAe33aXTBhi7LyA7ZTeSVcW4P6k52aYkcbDt2BY"
+local SHARED_API_KEY = "sk-mapleai-g9JF2sCNtm4WdiLdtJwLpA4rD4cLimI5fhiLXnvFJ210gAWH2eweqogs94ycvGDfwc9e4aTvKHNbcdNW"
 
 local ExecutorInfo = { name = "Unknown", version = "Unknown" }
 pcall(function()
