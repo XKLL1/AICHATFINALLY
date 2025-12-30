@@ -1,40 +1,32 @@
 local success, errorMsg = pcall(function()
-
 local ts = game:GetService("TweenService")
 local uis = game:GetService("UserInputService")
 local plrs = game:GetService("Players")
 local http = game:GetService("HttpService")
 local rs = game:GetService("ReplicatedStorage")
 local tcs = game:GetService("TextChatService")
-
+local RunService = game:GetService("RunService")
+local PathfindingService = game:GetService("PathfindingService")
 local lp = plrs.LocalPlayer
-
-local SCRIPT_VERSION = "7.1.0"
-local BUILD_TYPE = "MOBILE"
-
-local SHARED_API_KEY = "sk-mapleai-g9JF2sCNtm4WdiLdtJwLpA4rD4cLimI5fhiLXnvFJ210gAWH2eweqogs94ycvGDfwc9e4aTvKHNbcdNW"
-
-local ExecutorInfo = { name = "Unknown", version = "Unknown" }
-pcall(function()
-    if identifyexecutor then
-        local name, version = identifyexecutor()
-        ExecutorInfo.name = name or "Unknown"
-        ExecutorInfo.version = version or "Unknown"
-    elseif getexecutorname then
-        ExecutorInfo.name = getexecutorname()
-    end
-end)
-
-local cfgFile = "MapleAI_Mobile.json"
+local SCRIPT_VERSION = "8.0.0"
+local API_KEY = "sk-mapleai-g9JF2sCNtm4WdiLdtJwLpA4rD4cLimI5fhiLXnvFJ210gAWH2eweqogs94ycvGDfwc9e4aTvKHNbcdNW"
 local API_BASE = "https://api.mapleai.de/v1"
-
+local ExecutorInfo = {name = "Unknown", version = "Unknown"}
+pcall(function() if identifyexecutor then local n,v = identifyexecutor() ExecutorInfo.name = n or "Unknown" ExecutorInfo.version = v or "Unknown" elseif getexecutorname then ExecutorInfo.name = getexecutorname() end end)
+local cfgFile = "MapleAI_Advanced.json"
 local defCfg = {
     MasterEnabled = false,
     Persona = "Brief Roblox AI. Max 1-2 sentences.",
-    Model = "gpt-4o-mini",
+    Models = {
+        Chat = "deepseek-r1-0528",
+        Pathfinding = "gpt-4o-mini",
+        Combat = "gpt-4o-mini",
+        NPC = "deepseek-r1-0528",
+        Supervisor = "gpt-4o",
+        Fallback = "gpt-3.5-turbo"
+    },
     Blacklist = {},
     Whitelist = {},
-    WhitelistMode = false,
     DebugMode = false,
     Range = 0,
     TriggerMode = "smart",
@@ -54,67 +46,63 @@ local defCfg = {
     AutoGreetMessage = "Hey {player}! Welcome!",
     HumanTyping = false,
     TypingSpeed = 0.05,
+    EnableSupervisor = false,
+    RotationSpeed = 5,
 }
-
 getgenv().MapleConfig = getgenv().MapleConfig or {}
-for k, v in pairs(defCfg) do
-    if getgenv().MapleConfig[k] == nil then
-        getgenv().MapleConfig[k] = v
-    end
-end
-
+for k,v in pairs(defCfg) do if getgenv().MapleConfig[k] == nil then getgenv().MapleConfig[k] = v end end
 local clr = {
-    accent = Color3.fromRGB(147, 112, 219),
-    bg = Color3.fromRGB(28, 28, 30),
-    bgSecondary = Color3.fromRGB(44, 44, 46),
-    surface = Color3.fromRGB(38, 38, 40),
-    textPrimary = Color3.fromRGB(255, 255, 255),
-    textSecondary = Color3.fromRGB(174, 174, 178),
-    success = Color3.fromRGB(52, 199, 89),
-    warning = Color3.fromRGB(255, 159, 10),
-    error = Color3.fromRGB(255, 69, 58),
-    info = Color3.fromRGB(10, 132, 255),
+    accent = Color3.fromRGB(147,112,219),
+    bg = Color3.fromRGB(28,28,30),
+    bgSecondary = Color3.fromRGB(44,44,46),
+    surface = Color3.fromRGB(38,38,40),
+    textPrimary = Color3.fromRGB(255,255,255),
+    textSecondary = Color3.fromRGB(174,174,178),
+    success = Color3.fromRGB(52,199,89),
+    warning = Color3.fromRGB(255,159,10),
+    error = Color3.fromRGB(255,69,58),
+    info = Color3.fromRGB(10,132,255),
 }
-
 local MAX_MSG_LENGTH = 200
-local CACHE_MAX_SIZE = 100
 local CACHE_TTL = 300
 local MAX_MEMORY_SIZE = 20
-local MAX_GOSSIP_ITEMS = 3
-
+local MAX_CHAT_HISTORY = 50
 local processing = false
 local playerMemory = {}
 local knownPlayers = {}
 local spamTracker = {}
 local responseCache = {}
 local cacheOrder = {}
-local rateLimitTracker = { count = 0, resetTime = 0 }
 local recentlySent = {}
 local lastSentTime = 0
 local processedMessages = {}
-
-local stats = { messagesReceived = 0, responsesSent = 0, errors = 0, cacheHits = 0, apiCalls = 0 }
+local stats = {messagesReceived = 0, responsesSent = 0, errors = 0, cacheHits = 0, apiCalls = 0}
 local connections = {}
 local chatHistory = {}
-local MAX_CHAT_HISTORY = 50
-
+local systemLogs = {}
+local MAX_SYSTEM_LOGS = 100
+local function aiLog(category, message)
+    local timestamp = os.date("%H:%M:%S")
+    local prefix = "[AI ~ " .. category .. "]"
+    local fullMsg = timestamp .. " " .. prefix .. " " .. message
+    table.insert(systemLogs, {time = timestamp, category = category, msg = message, full = fullMsg})
+    while #systemLogs > MAX_SYSTEM_LOGS do table.remove(systemLogs, 1) end
+    print(fullMsg)
+    if getgenv().MapleConfig.DebugMode then
+        if chatHistory and #chatHistory < MAX_CHAT_HISTORY then
+            table.insert(chatHistory, {player = "SYSTEM", msg = prefix .. " " .. message, isMe = false, time = tick(), isSystem = true})
+        end
+    end
+end
 local function addConnection(conn, name)
     if conn then
         if name and connections[name] then pcall(function() connections[name]:Disconnect() end) end
         connections[name or (#connections + 1)] = conn
     end
 end
-
-local function log(...)
-    if getgenv().MapleConfig.DebugMode then print("[Maple]", ...) end
-end
-
 local function saveConfig()
-    pcall(function()
-        if writefile then writefile(cfgFile, http:JSONEncode(getgenv().MapleConfig)) end
-    end)
+    pcall(function() if writefile then writefile(cfgFile, http:JSONEncode(getgenv().MapleConfig)) end end)
 end
-
 local function loadConfig()
     pcall(function()
         if isfile and isfile(cfgFile) and readfile then
@@ -126,36 +114,252 @@ local function loadConfig()
         end
     end)
 end
-
 loadConfig()
-
+local function setSetting(key, value, category)
+    local old = getgenv().MapleConfig[key]
+    getgenv().MapleConfig[key] = value
+    saveConfig()
+    local cat = category or "Settings"
+    if type(value) == "table" then
+        aiLog(cat, "Changed " .. key)
+    elseif type(value) == "boolean" then
+        aiLog(cat, key .. " " .. (value and "Enabled" or "Disabled"))
+    else
+        aiLog(cat, "Changed " .. key .. " to \"" .. tostring(value) .. "\"")
+    end
+end
+local function setModel(agentType, modelName)
+    getgenv().MapleConfig.Models[agentType] = modelName
+    saveConfig()
+    aiLog("Model Settings", "Changed " .. agentType .. " Model to \"" .. modelName .. "\"")
+end
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
 if not httpRequest then warn("[Maple] No HTTP function!") end
-
+local AIAgents = {}
+local function createAgent(name, model, purpose)
+    AIAgents[name] = {
+        name = name,
+        model = model,
+        purpose = purpose,
+        history = {},
+        lastUsed = 0
+    }
+    aiLog("System", "Created AI Agent: " .. name .. " (" .. purpose .. ") using " .. model)
+    return AIAgents[name]
+end
+local function getAgent(name)
+    return AIAgents[name]
+end
+local function agentRequest(agentName, messages, callback)
+    local agent = AIAgents[agentName]
+    if not agent then
+        aiLog("Error", "Agent not found: " .. agentName)
+        if callback then callback(nil, "Agent not found") end
+        return
+    end
+    local model = getgenv().MapleConfig.Models[agent.name] or agent.model
+    stats.apiCalls = stats.apiCalls + 1
+    agent.lastUsed = tick()
+    aiLog("API", agent.name .. " requesting with model: " .. model)
+    local body = {
+        model = model,
+        messages = messages,
+        max_tokens = getgenv().MapleConfig.MaxTokens or 80,
+        temperature = getgenv().MapleConfig.Temperature or 0.5
+    }
+    task.spawn(function()
+        local ok, result = pcall(function()
+            return httpRequest({
+                Url = API_BASE .. "/chat/completions",
+                Method = "POST",
+                Headers = {
+                    ["Authorization"] = "Bearer " .. API_KEY,
+                    ["Content-Type"] = "application/json"
+                },
+                Body = http:JSONEncode(body)
+            })
+        end)
+        if not ok or not result or not result.Body then
+            stats.errors = stats.errors + 1
+            aiLog("Error", agent.name .. " request failed")
+            if callback then callback(nil, "Request failed") end
+            return
+        end
+        local decodeOk, data = pcall(function() return http:JSONDecode(result.Body) end)
+        if not decodeOk or not data then
+            if callback then callback(nil, "Parse error") end
+            return
+        end
+        if data.error then
+            aiLog("Error", agent.name .. ": " .. (data.error.message or "API Error"))
+            if callback then callback(nil, data.error.message) end
+            return
+        end
+        if data.choices and data.choices[1] and data.choices[1].message then
+            local response = data.choices[1].message.content
+            aiLog("Response", agent.name .. " responded (" .. #response .. " chars)")
+            if callback then callback(response, nil) end
+        else
+            if callback then callback(nil, "No response") end
+        end
+    end)
+end
+createAgent("Chat", "deepseek-r1-0528", "Main conversation and chat responses")
+createAgent("Pathfinding", "gpt-4o-mini", "Navigation and movement decisions")
+createAgent("Combat", "gpt-4o-mini", "Combat strategy and threat assessment")
+createAgent("NPC", "deepseek-r1-0528", "NPC dialogue and roleplay")
+createAgent("Supervisor", "gpt-4o", "Content moderation and safety")
+local PathfindingAI = {
+    currentPath = nil,
+    isNavigating = false,
+    target = nil
+}
+function PathfindingAI:createPath(character, targetPos, callback)
+    if not character then aiLog("Pathfinding", "No character") return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then aiLog("Pathfinding", "No HumanoidRootPart") return end
+    aiLog("Pathfinding", "Computing path to " .. tostring(targetPos))
+    local path = PathfindingService:CreatePath({AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 4})
+    local ok, err = pcall(function() path:ComputeAsync(hrp.Position, targetPos) end)
+    if not ok then
+        aiLog("Pathfinding", "Error: " .. tostring(err))
+        if callback then callback(nil, err) end
+        return
+    end
+    if path.Status == Enum.PathStatus.Success then
+        local waypoints = path:GetWaypoints()
+        self.currentPath = waypoints
+        aiLog("Pathfinding", "Path created with " .. #waypoints .. " waypoints")
+        if callback then callback(waypoints, nil) end
+    else
+        aiLog("Pathfinding", "No path found")
+        if callback then callback(nil, "No path") end
+    end
+end
+function PathfindingAI:followPath(character, waypoints, callback)
+    if not waypoints or #waypoints == 0 then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    self.isNavigating = true
+    aiLog("Pathfinding", "Following path...")
+    task.spawn(function()
+        for i, wp in ipairs(waypoints) do
+            if not self.isNavigating then break end
+            if wp.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
+            humanoid:MoveTo(wp.Position)
+            humanoid.MoveToFinished:Wait()
+        end
+        self.isNavigating = false
+        aiLog("Pathfinding", "Navigation complete")
+        if callback then callback(true) end
+    end)
+end
+function PathfindingAI:stop()
+    self.isNavigating = false
+    self.currentPath = nil
+    aiLog("Pathfinding", "Navigation stopped")
+end
+function PathfindingAI:pathToPlayer(character, targetPlayer, callback)
+    if not targetPlayer or not targetPlayer.Character then
+        aiLog("Pathfinding", "Invalid target player")
+        return
+    end
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    aiLog("Pathfinding", "Pathing to " .. targetPlayer.DisplayName)
+    self:createPath(character, targetHRP.Position, function(waypoints, err)
+        if waypoints then
+            self:followPath(character, waypoints, callback)
+        elseif callback then
+            callback(nil, err)
+        end
+    end)
+end
+function PathfindingAI:rotateToFace(character, targetPos, instant)
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local dir = (targetPos - hrp.Position)
+    dir = Vector3.new(dir.X, 0, dir.Z)
+    if dir.Magnitude < 0.1 then return end
+    dir = dir.Unit
+    local targetCF = CFrame.lookAt(hrp.Position, hrp.Position + dir)
+    if instant then
+        hrp.CFrame = targetCF
+        aiLog("Rotation", "Instantly facing target")
+    else
+        aiLog("Rotation", "Smoothly rotating to target")
+        task.spawn(function()
+            local startCF = hrp.CFrame
+            local alpha = 0
+            local speed = getgenv().MapleConfig.RotationSpeed or 5
+            while alpha < 1 do
+                alpha = math.min(1, alpha + speed * RunService.Heartbeat:Wait())
+                hrp.CFrame = startCF:Lerp(targetCF, alpha)
+            end
+        end)
+    end
+end
+local CombatAI = {
+    target = nil,
+    threats = {}
+}
+function CombatAI:findThreats(character, radius)
+    radius = radius or 50
+    self.threats = {}
+    if not character then return self.threats end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return self.threats end
+    for _, player in ipairs(plrs:GetPlayers()) do
+        if player ~= lp and player.Character then
+            local tHRP = player.Character:FindFirstChild("HumanoidRootPart")
+            local tHum = player.Character:FindFirstChild("Humanoid")
+            if tHRP and tHum and tHum.Health > 0 then
+                local dist = (tHRP.Position - hrp.Position).Magnitude
+                if dist <= radius then
+                    table.insert(self.threats, {
+                        player = player,
+                        distance = dist,
+                        health = tHum.Health,
+                        position = tHRP.Position
+                    })
+                end
+            end
+        end
+    end
+    table.sort(self.threats, function(a, b) return a.distance < b.distance end)
+    aiLog("Combat", "Found " .. #self.threats .. " threats within " .. radius .. " studs")
+    return self.threats
+end
+function CombatAI:selectTarget()
+    if #self.threats == 0 then
+        self.target = nil
+        return nil
+    end
+    self.target = self.threats[1].player
+    aiLog("Combat", "Target selected: " .. self.target.DisplayName)
+    return self.threats[1]
+end
 pcall(function()
     local existing = game:GetService("CoreGui"):FindFirstChild("MapleAI_Mobile")
     if existing then existing:Destroy() end
 end)
-
 local gui = Instance.new("ScreenGui")
 gui.Name = "MapleAI_Mobile"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
-
 pcall(function()
     if syn and syn.protect_gui then syn.protect_gui(gui)
     elseif gethui then gui.Parent = gethui() return end
 end)
 gui.Parent = game:GetService("CoreGui")
-
 local function createCorner(parent, radius)
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, radius or 12)
     corner.Parent = parent
     return corner
 end
-
 local fab = Instance.new("Frame")
 fab.Name = "FAB"
 fab.Size = UDim2.new(0, 70, 0, 70)
@@ -163,7 +367,6 @@ fab.Position = UDim2.new(0, 20, 1, -100)
 fab.BackgroundColor3 = clr.accent
 fab.Parent = gui
 createCorner(fab, 35)
-
 local fabIcon = Instance.new("TextLabel")
 fabIcon.Size = UDim2.new(1, 0, 1, 0)
 fabIcon.BackgroundTransparency = 1
@@ -172,55 +375,40 @@ fabIcon.TextSize = 32
 fabIcon.TextColor3 = clr.textPrimary
 fabIcon.Font = Enum.Font.GothamBold
 fabIcon.Parent = fab
-
 local fabButton = Instance.new("TextButton")
 fabButton.Size = UDim2.new(1, 0, 1, 0)
 fabButton.BackgroundTransparency = 1
 fabButton.Text = ""
 fabButton.Parent = fab
-
-local fabDragging = false
-local fabDragStart = nil
-local fabStartPos = nil
-local fabMoved = false
-
+local fabDragging, fabDragStart, fabStartPos, fabMoved = false, nil, nil, false
 fabButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        fabDragging = true
-        fabMoved = false
+        fabDragging, fabMoved = true, false
         fabDragStart = input.Position
         fabStartPos = fab.Position
     end
 end)
-
 fabButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         fabDragging = false
     end
 end)
-
 addConnection(uis.InputChanged:Connect(function(input)
     if fabDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
         local delta = input.Position - fabDragStart
         if delta.Magnitude > 15 then fabMoved = true end
-        fab.Position = UDim2.new(
-            fabStartPos.X.Scale, fabStartPos.X.Offset + delta.X,
-            fabStartPos.Y.Scale, fabStartPos.Y.Offset + delta.Y
-        )
+        fab.Position = UDim2.new(fabStartPos.X.Scale, fabStartPos.X.Offset + delta.X, fabStartPos.Y.Scale, fabStartPos.Y.Offset + delta.Y)
     end
 end), "fabDrag")
-
 local statusDot = Instance.new("Frame")
 statusDot.Size = UDim2.new(0, 20, 0, 20)
 statusDot.Position = UDim2.new(1, -16, 0, -4)
 statusDot.BackgroundColor3 = clr.error
 statusDot.Parent = fab
 createCorner(statusDot, 10)
-
 local function updateStatusDot()
     statusDot.BackgroundColor3 = getgenv().MapleConfig.MasterEnabled and clr.success or clr.error
 end
-
 local mainWindow = Instance.new("Frame")
 mainWindow.Name = "MainWindow"
 mainWindow.Size = UDim2.new(0.92, 0, 0.75, 0)
@@ -229,37 +417,30 @@ mainWindow.BackgroundColor3 = clr.bg
 mainWindow.Visible = false
 mainWindow.Parent = gui
 createCorner(mainWindow, 16)
-
 fabButton.Activated:Connect(function()
-    if not fabMoved then
-        mainWindow.Visible = not mainWindow.Visible
-    end
+    if not fabMoved then mainWindow.Visible = not mainWindow.Visible end
 end)
-
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 50)
 titleBar.BackgroundColor3 = clr.bgSecondary
 titleBar.Parent = mainWindow
 createCorner(titleBar, 16)
-
 local titleFix = Instance.new("Frame")
 titleFix.Size = UDim2.new(1, 0, 0, 16)
 titleFix.Position = UDim2.new(0, 0, 1, -16)
 titleFix.BackgroundColor3 = clr.bgSecondary
 titleFix.BorderSizePixel = 0
 titleFix.Parent = titleBar
-
 local titleText = Instance.new("TextLabel")
 titleText.Size = UDim2.new(1, -60, 1, 0)
 titleText.Position = UDim2.new(0, 16, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = "Maple AI"
+titleText.Text = "Maple AI v" .. SCRIPT_VERSION
 titleText.TextColor3 = clr.textPrimary
 titleText.TextSize = 18
 titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = titleBar
-
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 44, 0, 44)
 closeBtn.Position = UDim2.new(1, -50, 0.5, -22)
@@ -270,7 +451,7 @@ closeBtn.TextSize = 18
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Parent = titleBar
 createCorner(closeBtn, 10)
-
+closeBtn.MouseButton1Click:Connect(function() mainWindow.Visible = false end)
 local contentScroll = Instance.new("ScrollingFrame")
 contentScroll.Size = UDim2.new(1, -24, 1, -62)
 contentScroll.Position = UDim2.new(0, 12, 0, 56)
@@ -280,15 +461,12 @@ contentScroll.ScrollBarImageColor3 = clr.accent
 contentScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 contentScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 contentScroll.Parent = mainWindow
-
 local contentLayout = Instance.new("UIListLayout")
 contentLayout.Parent = contentScroll
 contentLayout.Padding = UDim.new(0, 8)
 contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
 local order = 0
 local function nextOrder() order = order + 1 return order end
-
 local function createSection(text)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 28)
@@ -302,15 +480,13 @@ local function createSection(text)
     label.Parent = contentScroll
     return label
 end
-
-local function createToggle(text, defaultValue, callback)
+local function createToggle(text, key, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 52)
     frame.BackgroundColor3 = clr.surface
     frame.LayoutOrder = nextOrder()
     frame.Parent = contentScroll
     createCorner(frame, 10)
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -80, 1, 0)
     label.Position = UDim2.new(0, 14, 0, 0)
@@ -321,37 +497,34 @@ local function createToggle(text, defaultValue, callback)
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-
+    local defaultValue = getgenv().MapleConfig[key]
     local toggle = Instance.new("Frame")
     toggle.Size = UDim2.new(0, 52, 0, 30)
     toggle.Position = UDim2.new(1, -66, 0.5, -15)
     toggle.BackgroundColor3 = defaultValue and clr.accent or clr.bgSecondary
     toggle.Parent = frame
     createCorner(toggle, 15)
-
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0, 26, 0, 26)
     knob.Position = defaultValue and UDim2.new(1, -28, 0.5, -13) or UDim2.new(0, 2, 0.5, -13)
     knob.BackgroundColor3 = clr.textPrimary
     knob.Parent = toggle
     createCorner(knob, 13)
-
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.BackgroundTransparency = 1
     btn.Text = ""
     btn.Parent = frame
-
     local isOn = defaultValue
     btn.MouseButton1Click:Connect(function()
         isOn = not isOn
         toggle.BackgroundColor3 = isOn and clr.accent or clr.bgSecondary
         knob.Position = isOn and UDim2.new(1, -28, 0.5, -13) or UDim2.new(0, 2, 0.5, -13)
+        setSetting(key, isOn, "Settings")
         if callback then callback(isOn) end
     end)
     return frame
 end
-
 local function createButton(text, callback, isPrimary)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 46)
@@ -366,15 +539,13 @@ local function createButton(text, callback, isPrimary)
     btn.MouseButton1Click:Connect(function() if callback then callback() end end)
     return btn
 end
-
-local function createDropdown(labelText, options, defaultValue, callback)
+local function createDropdown(labelText, options, key, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 80)
     frame.BackgroundColor3 = clr.surface
     frame.LayoutOrder = nextOrder()
     frame.Parent = contentScroll
     createCorner(frame, 10)
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -16, 0, 22)
     label.Position = UDim2.new(0, 14, 0, 6)
@@ -385,38 +556,36 @@ local function createDropdown(labelText, options, defaultValue, callback)
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-
+    local defaultValue = getgenv().MapleConfig[key]
     local dropBtn = Instance.new("TextButton")
     dropBtn.Size = UDim2.new(1, -28, 0, 38)
     dropBtn.Position = UDim2.new(0, 14, 0, 32)
     dropBtn.BackgroundColor3 = clr.bgSecondary
-    dropBtn.Text = "  " .. defaultValue .. "  ▼"
+    dropBtn.Text = "  " .. tostring(defaultValue) .. "  ▼"
     dropBtn.TextColor3 = clr.textPrimary
     dropBtn.TextSize = 12
     dropBtn.Font = Enum.Font.Gotham
     dropBtn.TextXAlignment = Enum.TextXAlignment.Left
     dropBtn.Parent = frame
     createCorner(dropBtn, 8)
-
     local idx = 1
     for i, opt in ipairs(options) do if opt == defaultValue then idx = i break end end
     dropBtn.MouseButton1Click:Connect(function()
         idx = idx % #options + 1
         local v = options[idx]
         dropBtn.Text = "  " .. v .. "  ▼"
+        setSetting(key, v, "Settings")
         if callback then callback(v) end
     end)
     return frame, dropBtn
 end
-
-local function createInput(labelText, placeholder, defaultValue, callback)
+local function createModelDropdown(labelText, agentType, options)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 80)
     frame.BackgroundColor3 = clr.surface
     frame.LayoutOrder = nextOrder()
     frame.Parent = contentScroll
     createCorner(frame, 10)
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -16, 0, 22)
     label.Position = UDim2.new(0, 14, 0, 6)
@@ -427,12 +596,51 @@ local function createInput(labelText, placeholder, defaultValue, callback)
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-
+    local defaultValue = getgenv().MapleConfig.Models[agentType]
+    local dropBtn = Instance.new("TextButton")
+    dropBtn.Size = UDim2.new(1, -28, 0, 38)
+    dropBtn.Position = UDim2.new(0, 14, 0, 32)
+    dropBtn.BackgroundColor3 = clr.bgSecondary
+    dropBtn.Text = "  " .. tostring(defaultValue) .. "  ▼"
+    dropBtn.TextColor3 = clr.textPrimary
+    dropBtn.TextSize = 12
+    dropBtn.Font = Enum.Font.Gotham
+    dropBtn.TextXAlignment = Enum.TextXAlignment.Left
+    dropBtn.Parent = frame
+    createCorner(dropBtn, 8)
+    local idx = 1
+    for i, opt in ipairs(options) do if opt == defaultValue then idx = i break end end
+    dropBtn.MouseButton1Click:Connect(function()
+        idx = idx % #options + 1
+        local v = options[idx]
+        dropBtn.Text = "  " .. v .. "  ▼"
+        setModel(agentType, v)
+    end)
+    return frame
+end
+local function createInput(labelText, placeholder, key, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 80)
+    frame.BackgroundColor3 = clr.surface
+    frame.LayoutOrder = nextOrder()
+    frame.Parent = contentScroll
+    createCorner(frame, 10)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -16, 0, 22)
+    label.Position = UDim2.new(0, 14, 0, 6)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = clr.textPrimary
+    label.TextSize = 12
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    local defaultValue = key and getgenv().MapleConfig[key] or ""
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(1, -28, 0, 38)
     input.Position = UDim2.new(0, 14, 0, 32)
     input.BackgroundColor3 = clr.bgSecondary
-    input.Text = defaultValue or ""
+    input.Text = tostring(defaultValue or "")
     input.PlaceholderText = placeholder or ""
     input.TextColor3 = clr.textPrimary
     input.PlaceholderColor3 = clr.textSecondary
@@ -441,24 +649,21 @@ local function createInput(labelText, placeholder, defaultValue, callback)
     input.ClearTextOnFocus = false
     input.Parent = frame
     createCorner(input, 8)
-
-    local pad = Instance.new("UIPadding")
-    pad.PaddingLeft = UDim.new(0, 10)
-    pad.PaddingRight = UDim.new(0, 10)
-    pad.Parent = input
-
-    input.FocusLost:Connect(function() if callback then callback(input.Text) end end)
+    input.FocusLost:Connect(function()
+        if key then
+            setSetting(key, input.Text, "Settings")
+        end
+        if callback then callback(input.Text) end
+    end)
     return frame, input
 end
-
-local function createSlider(text, minVal, maxVal, defaultValue, callback)
+local function createSlider(text, minVal, maxVal, key, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 65)
     frame.BackgroundColor3 = clr.surface
     frame.LayoutOrder = nextOrder()
     frame.Parent = contentScroll
     createCorner(frame, 10)
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -55, 0, 22)
     label.Position = UDim2.new(0, 14, 0, 6)
@@ -469,7 +674,7 @@ local function createSlider(text, minVal, maxVal, defaultValue, callback)
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-
+    local defaultValue = getgenv().MapleConfig[key] or minVal
     local valueLabel = Instance.new("TextLabel")
     valueLabel.Size = UDim2.new(0, 45, 0, 22)
     valueLabel.Position = UDim2.new(1, -55, 0, 6)
@@ -479,21 +684,18 @@ local function createSlider(text, minVal, maxVal, defaultValue, callback)
     valueLabel.TextSize = 12
     valueLabel.Font = Enum.Font.GothamBold
     valueLabel.Parent = frame
-
     local track = Instance.new("Frame")
     track.Size = UDim2.new(1, -28, 0, 8)
     track.Position = UDim2.new(0, 14, 0, 44)
     track.BackgroundColor3 = clr.bgSecondary
     track.Parent = frame
     createCorner(track, 4)
-
     local pct = (defaultValue - minVal) / (maxVal - minVal)
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(pct, 0, 1, 0)
     fill.BackgroundColor3 = clr.accent
     fill.Parent = track
     createCorner(fill, 4)
-
     local dragging = false
     local function update(x)
         local rel = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
@@ -501,25 +703,30 @@ local function createSlider(text, minVal, maxVal, defaultValue, callback)
         if maxVal <= 1 then val = math.floor(val * 100) / 100 else val = math.floor(val) end
         valueLabel.Text = tostring(val)
         fill.Size = UDim2.new(rel, 0, 1, 0)
+        getgenv().MapleConfig[key] = val
         if callback then callback(val) end
     end
-
     track.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true update(input.Position.X)
+            dragging = true
+            update(input.Position.X)
         end
     end)
     track.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+            saveConfig()
+            aiLog("Settings", "Changed " .. key .. " to \"" .. tostring(getgenv().MapleConfig[key]) .. "\"")
+        end
     end)
     addConnection(uis.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then update(input.Position.X) end
-    end), "slider_" .. text:gsub("%s", "_"))
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            update(input.Position.X)
+        end
+    end), "slider_" .. key)
     return frame
 end
-
 local statusTitle, statusSub, statusDotBig
-
 local function updateStatus()
     local enabled = getgenv().MapleConfig.MasterEnabled
     local afk = getgenv().MapleConfig.AFKMode
@@ -540,14 +747,12 @@ local function updateStatus()
     end
     updateStatusDot()
 end
-
 local statusCard = Instance.new("Frame")
 statusCard.Size = UDim2.new(1, 0, 0, 70)
 statusCard.BackgroundColor3 = clr.surface
 statusCard.LayoutOrder = nextOrder()
 statusCard.Parent = contentScroll
 createCorner(statusCard, 10)
-
 statusTitle = Instance.new("TextLabel")
 statusTitle.Size = UDim2.new(1, -50, 0, 26)
 statusTitle.Position = UDim2.new(0, 14, 0, 12)
@@ -558,7 +763,6 @@ statusTitle.TextSize = 15
 statusTitle.Font = Enum.Font.GothamBold
 statusTitle.TextXAlignment = Enum.TextXAlignment.Left
 statusTitle.Parent = statusCard
-
 statusSub = Instance.new("TextLabel")
 statusSub.Size = UDim2.new(1, -50, 0, 18)
 statusSub.Position = UDim2.new(0, 14, 0, 38)
@@ -569,390 +773,212 @@ statusSub.TextSize = 11
 statusSub.Font = Enum.Font.Gotham
 statusSub.TextXAlignment = Enum.TextXAlignment.Left
 statusSub.Parent = statusCard
-
 statusDotBig = Instance.new("Frame")
 statusDotBig.Size = UDim2.new(0, 14, 0, 14)
 statusDotBig.Position = UDim2.new(1, -32, 0.5, -7)
 statusDotBig.BackgroundColor3 = clr.error
 statusDotBig.Parent = statusCard
 createCorner(statusDotBig, 7)
-
 createSection("CONTROLS")
-
-createToggle("Enable AI", getgenv().MapleConfig.MasterEnabled, function(v)
-    getgenv().MapleConfig.MasterEnabled = v
-    saveConfig()
-    updateStatus()
-end)
-
-createToggle("AFK Mode", getgenv().MapleConfig.AFKMode, function(v)
-    getgenv().MapleConfig.AFKMode = v
-    saveConfig()
-    updateStatus()
-end)
-
-createToggle("Auto Greet Players", getgenv().MapleConfig.AutoGreet, function(v)
-    getgenv().MapleConfig.AutoGreet = v
-    saveConfig()
-end)
-
-createInput("Greet Message ({player})", "{player} = their name", getgenv().MapleConfig.AutoGreetMessage, function(v)
-    getgenv().MapleConfig.AutoGreetMessage = v
-    saveConfig()
-end)
-
-createSection("QUICK REPLIES")
-
-local quickReplies = {
-    {"brb", "brb"},
-    {"lol", "lol"},
-    {"gg", "gg"},
-    {"nice", "nice!"},
-    {"?", "?"},
-    {"wow", "wow"},
-}
-
-local quickReplyFrame = Instance.new("Frame")
-quickReplyFrame.Size = UDim2.new(1, 0, 0, 50)
-quickReplyFrame.BackgroundColor3 = clr.surface
-quickReplyFrame.LayoutOrder = nextOrder()
-quickReplyFrame.Parent = contentScroll
-createCorner(quickReplyFrame, 10)
-
-local quickLayout = Instance.new("UIListLayout")
-quickLayout.FillDirection = Enum.FillDirection.Horizontal
-quickLayout.Padding = UDim.new(0, 6)
-quickLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-quickLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-quickLayout.Parent = quickReplyFrame
-
-for _, qr in ipairs(quickReplies) do
-    local qBtn = Instance.new("TextButton")
-    qBtn.Size = UDim2.new(0, 45, 0, 34)
-    qBtn.BackgroundColor3 = clr.bgSecondary
-    qBtn.Text = qr[1]
-    qBtn.TextColor3 = clr.textPrimary
-    qBtn.TextSize = 11
-    qBtn.Font = Enum.Font.GothamBold
-    qBtn.Parent = quickReplyFrame
-    createCorner(qBtn, 8)
-    qBtn.MouseButton1Click:Connect(function()
-        sendMessage(qr[2])
-    end)
-end
-
-createSection("SETTINGS")
-
-createDropdown("Trigger Mode", {"smart", "all", "mention", "prefix", "whitelist"}, getgenv().MapleConfig.TriggerMode, function(v)
-    getgenv().MapleConfig.TriggerMode = v
-    saveConfig()
-end)
-
-createDropdown("Response Length", {"short", "medium", "long"}, getgenv().MapleConfig.ResponseLength, function(v)
-    getgenv().MapleConfig.ResponseLength = v
-    saveConfig()
-end)
-
-createInput("Range in studs (0=∞)", "0 = unlimited", tostring(getgenv().MapleConfig.Range), function(v)
-    local num = tonumber(v) or 0
-    if num < 0 then num = 0 end
-    getgenv().MapleConfig.Range = num
-    saveConfig()
-end)
-
-createSlider("Response Delay", 0.1, 5, getgenv().MapleConfig.ResponseDelay, function(v)
-    getgenv().MapleConfig.ResponseDelay = v
-    saveConfig()
-end)
-
-createToggle("Human Typing", getgenv().MapleConfig.HumanTyping, function(v)
-    getgenv().MapleConfig.HumanTyping = v
-    saveConfig()
-end)
-
-createSlider("Typing Speed", 0.01, 0.15, getgenv().MapleConfig.TypingSpeed, function(v)
-    getgenv().MapleConfig.TypingSpeed = v
-    saveConfig()
-end)
-
-createSection("WHITELIST")
-
-local whitelistInput
-local _, whitelistBox = createInput("Add to Whitelist", "Enter display name...", "", function(v)
-    if v and v ~= "" then
-        if not table.find(getgenv().MapleConfig.Whitelist, v) then
-            table.insert(getgenv().MapleConfig.Whitelist, v)
-            saveConfig()
-        end
-        whitelistBox.Text = ""
-    end
-end)
-whitelistBox = whitelistBox
-
-local whitelistLabel = Instance.new("TextLabel")
-whitelistLabel.Size = UDim2.new(1, 0, 0, 40)
-whitelistLabel.BackgroundTransparency = 1
-whitelistLabel.Text = "Whitelist: " .. (#getgenv().MapleConfig.Whitelist > 0 and table.concat(getgenv().MapleConfig.Whitelist, ", ") or "empty")
-whitelistLabel.TextColor3 = clr.textSecondary
-whitelistLabel.TextSize = 10
-whitelistLabel.TextWrapped = true
-whitelistLabel.Font = Enum.Font.Gotham
-whitelistLabel.LayoutOrder = nextOrder()
-whitelistLabel.Parent = contentScroll
-
-createButton("Clear Whitelist", function()
-    getgenv().MapleConfig.Whitelist = {}
-    saveConfig()
-    whitelistLabel.Text = "Whitelist: empty"
-end)
-
-createSection("IGNORE WORDS")
-
-local ignoreInput
-local _, ignoreBox = createInput("Add Ignore Word", "Won't respond if msg contains...", "", function(v)
-    if v and v ~= "" then
-        if not table.find(getgenv().MapleConfig.IgnoreWords, v:lower()) then
-            table.insert(getgenv().MapleConfig.IgnoreWords, v:lower())
-            saveConfig()
-        end
-        ignoreBox.Text = ""
-    end
-end)
-ignoreBox = ignoreBox
-
-local ignoreLabel = Instance.new("TextLabel")
-ignoreLabel.Size = UDim2.new(1, 0, 0, 40)
-ignoreLabel.BackgroundTransparency = 1
-ignoreLabel.Text = "Ignored: " .. (#getgenv().MapleConfig.IgnoreWords > 0 and table.concat(getgenv().MapleConfig.IgnoreWords, ", ") or "none")
-ignoreLabel.TextColor3 = clr.textSecondary
-ignoreLabel.TextSize = 10
-ignoreLabel.TextWrapped = true
-ignoreLabel.Font = Enum.Font.Gotham
-ignoreLabel.LayoutOrder = nextOrder()
-ignoreLabel.Parent = contentScroll
-
-createButton("Clear Ignore Words", function()
-    getgenv().MapleConfig.IgnoreWords = {}
-    saveConfig()
-    ignoreLabel.Text = "Ignored: none"
-end)
-
-createSection("AI MODEL")
-
-local modelResultLabel
-
-local _, modelInput = createInput("Custom Model", "e.g. gpt-4o-mini, claude-3-haiku...", getgenv().MapleConfig.Model, function(v)
-    getgenv().MapleConfig.Model = v
-    saveConfig()
-end)
-
-local function testModel(modelName)
-    if not httpRequest then return false, "NO_HTTP", 0 end
-    if SHARED_API_KEY == "" or SHARED_API_KEY == "YOUR_API_KEY_HERE" then return false, "NO_KEY", 0 end
-    
-    local startTime = tick()
-    local body = {
-        model = modelName,
-        messages = {{role = "user", content = "Hi"}},
-        max_tokens = 5,
-    }
-    
-    local ok, result = pcall(function()
-        return httpRequest({
-            Url = API_BASE .. "/chat/completions",
-            Method = "POST",
-            Headers = {
-                ["Authorization"] = "Bearer " .. SHARED_API_KEY,
-                ["Content-Type"] = "application/json"
-            },
-            Body = http:JSONEncode(body)
-        })
-    end)
-    
-    local elapsed = tick() - startTime
-    
-    if not ok or not result then return false, "REQUEST_FAILED", elapsed end
-    
-    local statusCode = result.StatusCode or 0
-    if statusCode == 401 then return false, "INVALID_KEY", elapsed end
-    if statusCode == 404 then return false, "MODEL_NOT_FOUND", elapsed end
-    if statusCode == 429 then return false, "RATE_LIMITED", elapsed end
-    if statusCode >= 400 then return false, "ERROR_" .. statusCode, elapsed end
-    
-    if result.Body then
-        local decodeOk, data = pcall(function() return http:JSONDecode(result.Body) end)
-        if decodeOk and data then
-            if data.error then return false, data.error.message or "API_ERROR", elapsed end
-            if data.choices and #data.choices > 0 then return true, "OK", elapsed end
+createToggle("Enable AI", "MasterEnabled", updateStatus)
+createToggle("AFK Mode", "AFKMode", updateStatus)
+createToggle("Debug Mode", "DebugMode")
+createToggle("Enable Supervisor", "EnableSupervisor")
+createSection("AI MODELS")
+local modelOptions = {"deepseek-r1-0528", "deepseek-r1", "gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"}
+createModelDropdown("Chat Model (Conversations)", "Chat", modelOptions)
+createModelDropdown("Pathfinding Model", "Pathfinding", modelOptions)
+createModelDropdown("Combat Model", "Combat", modelOptions)
+createModelDropdown("NPC Model", "NPC", modelOptions)
+createModelDropdown("Supervisor Model", "Supervisor", modelOptions)
+createSection("PATHFINDING")
+createButton("Path to Nearest Player", function()
+    local char = lp.Character
+    if not char then aiLog("Pathfinding", "No character") return end
+    local nearest, nearDist = nil, math.huge
+    for _, p in ipairs(plrs:GetPlayers()) do
+        if p ~= lp and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp and myHrp then
+                local dist = (hrp.Position - myHrp.Position).Magnitude
+                if dist < nearDist then nearDist = dist nearest = p end
+            end
         end
     end
-    
-    return false, "UNKNOWN", elapsed
-end
-
-local testBtn = createButton("Test Model", function()
-    local model = modelInput.Text:gsub("^%s+", ""):gsub("%s+$", "")
-    if model == "" then
-        modelResultLabel.Text = "Enter a model name first"
-        modelResultLabel.TextColor3 = clr.warning
-        return
+    if nearest then
+        PathfindingAI:pathToPlayer(char, nearest)
+    else
+        aiLog("Pathfinding", "No players found")
     end
-    
-    modelResultLabel.Text = "Testing..."
-    modelResultLabel.TextColor3 = clr.textSecondary
-    
-    task.spawn(function()
-        local valid, reason, elapsed = testModel(model)
-        local timeStr = string.format("%.2fs", elapsed)
-        
-        if valid then
-            modelResultLabel.Text = "✓ Model works! (" .. timeStr .. ")"
-            modelResultLabel.TextColor3 = clr.success
-            getgenv().MapleConfig.Model = model
-            saveConfig()
-        else
-            modelResultLabel.Text = "✗ Failed: " .. reason .. " (" .. timeStr .. ")"
-            modelResultLabel.TextColor3 = clr.error
-        end
-    end)
 end, true)
-
-modelResultLabel = Instance.new("TextLabel")
-modelResultLabel.Size = UDim2.new(1, 0, 0, 24)
-modelResultLabel.BackgroundTransparency = 1
-modelResultLabel.Text = "Type a model name and tap Test"
-modelResultLabel.TextColor3 = clr.textSecondary
-modelResultLabel.TextSize = 11
-modelResultLabel.Font = Enum.Font.Gotham
-modelResultLabel.LayoutOrder = nextOrder()
-modelResultLabel.Parent = contentScroll
-
-createSlider("Max Tokens", 50, 500, getgenv().MapleConfig.MaxTokens, function(v)
-    getgenv().MapleConfig.MaxTokens = v
-    saveConfig()
+createButton("Stop Navigation", function()
+    PathfindingAI:stop()
 end)
-
-createSlider("Temperature", 0, 1, getgenv().MapleConfig.Temperature, function(v)
-    getgenv().MapleConfig.Temperature = v
-    saveConfig()
+createButton("Face Nearest Player", function()
+    local char = lp.Character
+    if not char then return end
+    local nearest, nearDist = nil, math.huge
+    for _, p in ipairs(plrs:GetPlayers()) do
+        if p ~= lp and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp and myHrp then
+                local dist = (hrp.Position - myHrp.Position).Magnitude
+                if dist < nearDist then nearDist = dist nearest = p end
+            end
+        end
+    end
+    if nearest and nearest.Character then
+        local targetHrp = nearest.Character:FindFirstChild("HumanoidRootPart")
+        if targetHrp then
+            PathfindingAI:rotateToFace(char, targetHrp.Position, false)
+        end
+    end
 end)
-
+createSlider("Rotation Speed", 1, 20, "RotationSpeed")
+createSection("COMBAT")
+createButton("Scan for Threats", function()
+    local char = lp.Character
+    if char then
+        local threats = CombatAI:findThreats(char, 100)
+        if #threats > 0 then
+            local t = threats[1]
+            aiLog("Combat", "Nearest: " .. t.player.DisplayName .. " at " .. math.floor(t.distance) .. " studs")
+        end
+    end
+end)
+createButton("Select Target", function()
+    local char = lp.Character
+    if char then
+        CombatAI:findThreats(char, 100)
+        CombatAI:selectTarget()
+    end
+end)
+createSection("CHAT SETTINGS")
+createDropdown("Trigger Mode", {"smart", "all", "mention", "prefix", "whitelist"}, "TriggerMode")
+createDropdown("Response Length", {"short", "medium", "long"}, "ResponseLength")
+createSlider("Range (0=∞)", 0, 500, "Range")
+createSlider("Response Delay", 0.1, 5, "ResponseDelay")
+createSlider("Max Tokens", 50, 500, "MaxTokens")
+createSlider("Temperature", 0, 1, "Temperature")
+createSection("HUMAN BEHAVIOR")
+createToggle("Human Typing", "HumanTyping")
+createSlider("Typing Speed", 0.01, 0.15, "TypingSpeed")
+createToggle("Auto Greet", "AutoGreet")
+createInput("Greet Message", "{player} = name", "AutoGreetMessage")
 createSection("PERSONA")
-
-local _, personaInput = createInput("AI Persona", "How should AI behave...", getgenv().MapleConfig.Persona, function(v)
-    getgenv().MapleConfig.Persona = v
-    saveConfig()
-end)
-
+createInput("AI Persona", "How AI behaves...", "Persona")
 createSection("PRESETS")
-
 local presets = {
     {"Helpful", "You are a helpful AI in Roblox. Be friendly and brief. Max 2 sentences."},
     {"Casual", "You are a chill gamer. Use casual language and gaming slang. Keep it short!"},
     {"Sarcastic", "You are sarcastic but helpful. Use wit and humor. Still answer helpfully."},
 }
-
 for _, p in ipairs(presets) do
     createButton(p[1], function()
-        personaInput.Text = p[2]
-        getgenv().MapleConfig.Persona = p[2]
-        saveConfig()
+        setSetting("Persona", p[2], "Persona")
     end)
 end
-
+createSection("SYSTEM LOGS")
+local logsScroll = Instance.new("ScrollingFrame")
+logsScroll.Size = UDim2.new(1, 0, 0, 150)
+logsScroll.BackgroundColor3 = clr.surface
+logsScroll.ScrollBarThickness = 3
+logsScroll.ScrollBarImageColor3 = clr.accent
+logsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+logsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+logsScroll.LayoutOrder = nextOrder()
+logsScroll.Parent = contentScroll
+createCorner(logsScroll, 10)
+local logsLayout = Instance.new("UIListLayout")
+logsLayout.Padding = UDim.new(0, 2)
+logsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+logsLayout.Parent = logsScroll
+local logsPad = Instance.new("UIPadding")
+logsPad.PaddingLeft = UDim.new(0, 8)
+logsPad.PaddingRight = UDim.new(0, 8)
+logsPad.PaddingTop = UDim.new(0, 6)
+logsPad.PaddingBottom = UDim.new(0, 6)
+logsPad.Parent = logsScroll
+local logLabels = {}
+local function updateLogsUI()
+    for _, lbl in ipairs(logLabels) do
+        if lbl and lbl.Parent then lbl:Destroy() end
+    end
+    logLabels = {}
+    local startIdx = math.max(1, #systemLogs - 30)
+    for i = startIdx, #systemLogs do
+        local entry = systemLogs[i]
+        if entry then
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, 0, 0, 14)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = entry.full
+            local cat = entry.category
+            if cat == "Error" then
+                lbl.TextColor3 = clr.error
+            elseif cat == "Warning" then
+                lbl.TextColor3 = clr.warning
+            elseif cat == "Model Settings" then
+                lbl.TextColor3 = clr.info
+            elseif cat == "Settings" then
+                lbl.TextColor3 = clr.accent
+            else
+                lbl.TextColor3 = clr.textSecondary
+            end
+            lbl.TextSize = 9
+            lbl.TextWrapped = true
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Font = Enum.Font.Code
+            lbl.LayoutOrder = i
+            lbl.Parent = logsScroll
+            table.insert(logLabels, lbl)
+        end
+    end
+end
+task.spawn(function()
+    while gui.Parent do
+        task.wait(1)
+        updateLogsUI()
+    end
+end)
+createButton("Clear Logs", function()
+    systemLogs = {}
+    updateLogsUI()
+    aiLog("System", "Logs cleared")
+end)
 createSection("MEMORY")
-
 createButton("Clear Memory", function()
     playerMemory = {}
     responseCache = {}
     cacheOrder = {}
+    aiLog("Memory", "All memory cleared")
 end, true)
-
-createSection("CHAT HISTORY")
-
-local historyScroll = Instance.new("ScrollingFrame")
-historyScroll.Size = UDim2.new(1, 0, 0, 120)
-historyScroll.BackgroundColor3 = clr.surface
-historyScroll.ScrollBarThickness = 3
-historyScroll.ScrollBarImageColor3 = clr.accent
-historyScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-historyScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-historyScroll.LayoutOrder = nextOrder()
-historyScroll.Parent = contentScroll
-createCorner(historyScroll, 10)
-
-local historyLayout = Instance.new("UIListLayout")
-historyLayout.Padding = UDim.new(0, 2)
-historyLayout.SortOrder = Enum.SortOrder.LayoutOrder
-historyLayout.Parent = historyScroll
-
-local historyPad = Instance.new("UIPadding")
-historyPad.PaddingLeft = UDim.new(0, 8)
-historyPad.PaddingRight = UDim.new(0, 8)
-historyPad.PaddingTop = UDim.new(0, 6)
-historyPad.PaddingBottom = UDim.new(0, 6)
-historyPad.Parent = historyScroll
-
-local function updateHistoryUI()
-    for _, child in ipairs(historyScroll:GetChildren()) do
-        if child:IsA("TextLabel") then child:Destroy() end
-    end
-    for i = math.max(1, #chatHistory - 20), #chatHistory do
-        local entry = chatHistory[i]
-        if entry then
-            local lbl = Instance.new("TextLabel")
-            lbl.Size = UDim2.new(1, 0, 0, 16)
-            lbl.BackgroundTransparency = 1
-            lbl.Text = (entry.isMe and "You: " or entry.player .. ": ") .. entry.msg
-            lbl.TextColor3 = entry.isMe and clr.accent or clr.textSecondary
-            lbl.TextSize = 9
-            lbl.TextWrapped = true
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Font = Enum.Font.Gotham
-            lbl.LayoutOrder = i
-            lbl.Parent = historyScroll
-        end
-    end
-end
-
-createButton("Clear Chat History", function()
-    chatHistory = {}
-    updateHistoryUI()
-end)
-
 createSection("INFO")
-
 local infoLabel = Instance.new("TextLabel")
-infoLabel.Size = UDim2.new(1, 0, 0, 50)
+infoLabel.Size = UDim2.new(1, 0, 0, 60)
 infoLabel.BackgroundTransparency = 1
-infoLabel.Text = string.format("v%s | %s\nMsgs: 0 | API: 0 | Err: 0", SCRIPT_VERSION, ExecutorInfo.name)
+infoLabel.Text = string.format("v%s | %s\nAgents: Chat, Pathfinding, Combat, NPC, Supervisor", SCRIPT_VERSION, ExecutorInfo.name)
 infoLabel.TextColor3 = clr.textSecondary
 infoLabel.TextSize = 10
 infoLabel.Font = Enum.Font.Gotham
+infoLabel.TextWrapped = true
 infoLabel.LayoutOrder = nextOrder()
 infoLabel.Parent = contentScroll
-
 task.spawn(function()
     while gui.Parent do
         task.wait(2)
-        infoLabel.Text = string.format("v%s | %s\nMsgs: %d | API: %d | Err: %d", 
-            SCRIPT_VERSION, ExecutorInfo.name, stats.messagesReceived, stats.apiCalls, stats.errors)
+        infoLabel.Text = string.format("v%s | %s\nMsgs: %d | API: %d | Err: %d | Cache: %d",
+            SCRIPT_VERSION, ExecutorInfo.name, stats.messagesReceived, stats.apiCalls, stats.errors, stats.cacheHits)
     end
 end)
-
 updateStatus()
-
-
-closeBtn.MouseButton1Click:Connect(function()
-    mainWindow.Visible = false
-end)
-
 local sayRemote = nil
 pcall(function()
     local defaultChat = rs:FindFirstChild("DefaultChatSystemChatEvents")
     if defaultChat then sayRemote = defaultChat:FindFirstChild("SayMessageRequest") end
 end)
-
 local function sendMessageRaw(message)
     local success = false
     pcall(function()
@@ -966,29 +992,21 @@ local function sendMessageRaw(message)
     end
     return success
 end
-
 local function sendMessage(message)
     if not message or message == "" then return false end
     if #message > MAX_MSG_LENGTH then message = message:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
-    
     table.insert(recentlySent, {msg = message:lower(), time = tick()})
     while #recentlySent > 20 do table.remove(recentlySent, 1) end
     lastSentTime = tick()
-    
     table.insert(chatHistory, {player = "You", msg = message, isMe = true, time = tick()})
     while #chatHistory > MAX_CHAT_HISTORY do table.remove(chatHistory, 1) end
-    pcall(updateHistoryUI)
-    
     if getgenv().MapleConfig.HumanTyping then
         local typingDelay = getgenv().MapleConfig.TypingSpeed or 0.05
-        local totalDelay = #message * typingDelay
-        totalDelay = math.min(totalDelay, 3)
+        local totalDelay = math.min(#message * typingDelay, 3)
         task.wait(totalDelay)
     end
-    
     return sendMessageRaw(message)
 end
-
 local function getPlayerDistance(character)
     if not character then return 999999 end
     local myChar = lp.Character
@@ -996,101 +1014,22 @@ local function getPlayerDistance(character)
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     local theirRoot = character:FindFirstChild("HumanoidRootPart")
     if not myRoot or not theirRoot then return 999999 end
-    local myPos = myRoot.Position
-    local theirPos = theirRoot.Position
-    local dx = theirPos.X - myPos.X
-    local dz = theirPos.Z - myPos.Z
+    local dx = theirRoot.Position.X - myRoot.Position.X
+    local dz = theirRoot.Position.Z - myRoot.Position.Z
     return math.sqrt(dx * dx + dz * dz)
 end
-
 local function isPlayerLookingAtMe(player)
     local myChar = lp.Character
     local theirChar = player.Character
     if not myChar or not theirChar then return false, 0 end
-    
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     local theirRoot = theirChar:FindFirstChild("HumanoidRootPart")
     if not myRoot or not theirRoot then return false, 0 end
-    
     local toMe = (myRoot.Position - theirRoot.Position).Unit
     local theirLook = theirRoot.CFrame.LookVector
-    
     local dot = toMe:Dot(theirLook)
-    local isLooking = dot > 0.5
-    return isLooking, dot
+    return dot > 0.5, dot
 end
-
-local function getNearbyPlayersCount()
-    local count = 0
-    local myChar = lp.Character
-    if not myChar then return 0 end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return 0 end
-    
-    for _, player in ipairs(plrs:GetPlayers()) do
-        if player ~= lp and player.Character then
-            local dist = getPlayerDistance(player.Character)
-            if dist < 50 then
-                count = count + 1
-            end
-        end
-    end
-    return count
-end
-
-local function getConversationContext(player)
-    local mem = playerMemory[tostring(player.UserId)]
-    if not mem or not mem.msgs or #mem.msgs == 0 then
-        return "no prior conversation"
-    end
-    
-    local lastMsg = mem.msgs[#mem.msgs]
-    local timeSince = tick() - (lastMsg.ts or 0)
-    
-    if timeSince < 30 then
-        return "active conversation (replied " .. math.floor(timeSince) .. "s ago)"
-    elseif timeSince < 120 then
-        return "recent conversation"
-    else
-        return "old conversation"
-    end
-end
-
-local function buildContextualInfo(player, message)
-    local info = {}
-    
-    local distance = getPlayerDistance(player.Character)
-    local isLooking, lookDot = isPlayerLookingAtMe(player)
-    local nearbyCount = getNearbyPlayersCount()
-    local convoContext = getConversationContext(player)
-    
-    table.insert(info, "Distance: " .. math.floor(distance) .. " studs")
-    table.insert(info, "Looking at you: " .. (isLooking and "YES" or "no") .. " (confidence: " .. math.floor(lookDot * 100) .. "%)")
-    table.insert(info, "Players nearby: " .. nearbyCount)
-    table.insert(info, "Conversation status: " .. convoContext)
-    
-    local msgLower = message:lower()
-    local directCues = {}
-    if msgLower:find("you") or msgLower:find("u ") or msgLower:find(" u$") then
-        table.insert(directCues, "uses 'you'")
-    end
-    if msgLower:find("?") then
-        table.insert(directCues, "question")
-    end
-    if msgLower:find(lp.DisplayName:lower()) or msgLower:find(lp.Name:lower()) then
-        table.insert(directCues, "mentions your name")
-    end
-    if msgLower:find("hey") or msgLower:find("hi ") or msgLower:find("hello") or msgLower:find("yo ") then
-        table.insert(directCues, "greeting")
-    end
-    
-    if #directCues > 0 then
-        table.insert(info, "Message cues: " .. table.concat(directCues, ", "))
-    end
-    
-    return table.concat(info, "; ")
-end
-
 local function updateKnownPlayers()
     knownPlayers = {}
     for _, player in ipairs(plrs:GetPlayers()) do
@@ -1101,62 +1040,20 @@ local function updateKnownPlayers()
         }
     end
 end
-
 local function getKnownPlayersList()
     local list = {}
     for uid, info in pairs(knownPlayers) do
-        if not info.isLocal then
-            table.insert(list, info.displayName)
-        end
+        if not info.isLocal then table.insert(list, info.displayName) end
     end
     return list
 end
-
-local function getGossipMemories(excludePlayerId)
-    local gossip = {}
-    local excludeUid = tostring(excludePlayerId)
-    
-    for uid, mem in pairs(playerMemory) do
-        if uid ~= excludeUid and mem.msgs and #mem.msgs > 0 then
-            local interestingMsgs = {}
-            for _, m in ipairs(mem.msgs) do
-                if m.role == "user" and #m.content > 10 then
-                    table.insert(interestingMsgs, {
-                        player = mem.name,
-                        content = m.content,
-                        ts = m.ts or 0
-                    })
-                end
-            end
-            for _, msg in ipairs(interestingMsgs) do
-                table.insert(gossip, msg)
-            end
-        end
-    end
-    
-    table.sort(gossip, function(a, b) return a.ts > b.ts end)
-    
-    local result = {}
-    for i = 1, math.min(#gossip, MAX_GOSSIP_ITEMS) do
-        table.insert(result, gossip[i])
-    end
-    return result
-end
-
 updateKnownPlayers()
-
 addConnection(plrs.PlayerAdded:Connect(function(player)
-    knownPlayers[tostring(player.UserId)] = {
-        name = player.Name,
-        displayName = player.DisplayName,
-        isLocal = (player == lp)
-    }
+    knownPlayers[tostring(player.UserId)] = {name = player.Name, displayName = player.DisplayName, isLocal = false}
 end), "KnownPlayersAdd")
-
 addConnection(plrs.PlayerRemoving:Connect(function(player)
     knownPlayers[tostring(player.UserId)] = nil
 end), "KnownPlayersRemove")
-
 local function isSpamming(player, message)
     if not getgenv().MapleConfig.AntiSpam then return false end
     local uid = player.UserId
@@ -1173,7 +1070,6 @@ local function isSpamming(player, message)
     table.insert(spamTracker[uid], {msg = message, time = now})
     return count >= getgenv().MapleConfig.SpamThreshold
 end
-
 local function containsIgnoreWord(message)
     local lower = message:lower()
     for _, word in ipairs(getgenv().MapleConfig.IgnoreWords or {}) do
@@ -1181,13 +1077,10 @@ local function containsIgnoreWord(message)
     end
     return false
 end
-
 local function shouldRespond(player, message)
     local cfg = getgenv().MapleConfig
     local mode = cfg.TriggerMode
-    
     if containsIgnoreWord(message) then return false end
-    
     if mode == "all" then return true end
     if mode == "mention" then
         local lower = message:lower()
@@ -1202,11 +1095,9 @@ local function shouldRespond(player, message)
     end
     return true
 end
-
 local function getCacheKey(msg)
     return msg:lower():gsub("%s+", " "):gsub("[^%w%s]", "")
 end
-
 local function checkCache(msg)
     local key = getCacheKey(msg)
     local entry = responseCache[key]
@@ -1216,17 +1107,15 @@ local function checkCache(msg)
     end
     return nil
 end
-
 local function addToCache(msg, resp)
     local key = getCacheKey(msg)
-    while #cacheOrder >= CACHE_MAX_SIZE do
+    while #cacheOrder >= 100 do
         local oldKey = table.remove(cacheOrder, 1)
         responseCache[oldKey] = nil
     end
     responseCache[key] = {resp = resp, ts = tick()}
     table.insert(cacheOrder, key)
 end
-
 local function getMemory(player)
     local uid = tostring(player.UserId)
     if not playerMemory[uid] then
@@ -1234,144 +1123,75 @@ local function getMemory(player)
             name = player.DisplayName,
             username = player.Name,
             msgs = {},
-            topics = {},
             last = tick()
         }
     end
     return playerMemory[uid]
 end
-
 local function addToMemory(player, msg, role)
     local mem = getMemory(player)
     table.insert(mem.msgs, {role = role, content = msg, ts = tick()})
     mem.last = tick()
-    
-    if role == "user" then
-        local lower = msg:lower()
-        if lower:find("like") or lower:find("love") or lower:find("hate") or lower:find("favorite") then
-            table.insert(mem.topics, {type = "preference", content = msg, ts = tick()})
-        end
-        if lower:find("play") or lower:find("game") or lower:find("doing") then
-            table.insert(mem.topics, {type = "activity", content = msg, ts = tick()})
-        end
-    end
-    
     while #mem.msgs > MAX_MEMORY_SIZE do table.remove(mem.msgs, 1) end
-    while #mem.topics > 10 do table.remove(mem.topics, 1) end
 end
-
+local function buildContextualInfo(player, message)
+    local info = {}
+    local distance = getPlayerDistance(player.Character)
+    local isLooking, lookDot = isPlayerLookingAtMe(player)
+    table.insert(info, "Distance: " .. math.floor(distance) .. " studs")
+    table.insert(info, "Looking: " .. (isLooking and "YES" or "no"))
+    local msgLower = message:lower()
+    local cues = {}
+    if msgLower:find("you") or msgLower:find("u ") then table.insert(cues, "you") end
+    if msgLower:find("?") then table.insert(cues, "question") end
+    if msgLower:find(lp.DisplayName:lower()) or msgLower:find(lp.Name:lower()) then table.insert(cues, "name") end
+    if #cues > 0 then table.insert(info, "Cues: " .. table.concat(cues, ",")) end
+    return table.concat(info, "; ")
+end
 local function buildMessages(player, currentMsg, smartMode)
     local cfg = getgenv().MapleConfig
     local mem = getMemory(player)
     local messages = {}
-    
     local playerList = getKnownPlayersList()
     local playersStr = #playerList > 0 and table.concat(playerList, ", ") or "none"
-    
-    local gossip = getGossipMemories(player.UserId)
-    local gossipStr = ""
-    if #gossip > 0 then
-        local gossipParts = {}
-        for _, g in ipairs(gossip) do
-            local snippet = g.content
-            if #snippet > 40 then snippet = snippet:sub(1, 37) .. "..." end
-            table.insert(gossipParts, g.player .. ": \"" .. snippet .. "\"")
-        end
-        gossipStr = " Past convos you remember: " .. table.concat(gossipParts, "; ") .. "."
-    end
-    
     local lengthInstruction = ""
     local respLen = cfg.ResponseLength or "medium"
     if respLen == "short" then
-        lengthInstruction = " Keep responses under 50 chars, super brief."
+        lengthInstruction = " Under 50 chars."
     elseif respLen == "long" then
-        lengthInstruction = " You can write longer responses, 2-3 sentences."
+        lengthInstruction = " 2-3 sentences ok."
     else
-        lengthInstruction = " Keep it 1-2 sentences max."
+        lengthInstruction = " 1-2 sentences."
     end
-    
     local contextualInfo = ""
     local smartInstruction = ""
     if smartMode then
         contextualInfo = " [SITUATION] " .. buildContextualInfo(player, currentMsg)
-        smartInstruction = " IMPORTANT: Based on the situation context, decide if this message is directed at you. If it clearly isn't meant for you (talking to someone else, general statement to room, etc), respond with just [IGNORE] and nothing else. Only respond normally if the message seems directed at you."
+        smartInstruction = " If message isn't for you, respond [IGNORE]."
     end
-    
-    local myName = lp.DisplayName
-    local speakerName = player.DisplayName
-    local sys = cfg.Persona .. " [CONTEXT] You are " .. myName .. ". The person messaging you RIGHT NOW is named \"" .. speakerName .. "\". If your persona mentions anyone by name (like a friend, partner, etc) and that name matches \"" .. speakerName .. "\" or anyone nearby, THEY ARE THE SAME PERSON - react accordingly! Other players here: " .. playersStr .. "." .. gossipStr .. contextualInfo .. smartInstruction .. lengthInstruction .. " No markdown"
+    local sys = cfg.Persona .. " You are " .. lp.DisplayName .. ". Speaker: " .. player.DisplayName .. ". Players: " .. playersStr .. "." .. contextualInfo .. smartInstruction .. lengthInstruction .. " No markdown"
     table.insert(messages, {role = "system", content = sys})
-    
     local windowSize = math.min(cfg.ContextWindowSize or 3, 5)
     local start = math.max(1, #mem.msgs - windowSize + 1)
     for i = start, #mem.msgs do
         local m = mem.msgs[i]
-        local content = m.content
-        if #content > 100 then content = content:sub(1, 97) .. "..." end
-        table.insert(messages, {role = m.role, content = content})
+        table.insert(messages, {role = m.role, content = m.content:sub(1, 100)})
     end
-    
-    if #currentMsg > 150 then currentMsg = currentMsg:sub(1, 147) .. "..." end
-    table.insert(messages, {role = "user", content = currentMsg})
+    table.insert(messages, {role = "user", content = currentMsg:sub(1, 150)})
     return messages
 end
-
-local function makeRequest(messages)
-    local cfg = getgenv().MapleConfig
-    
-    if not httpRequest then return nil, "NO_HTTP" end
-    if SHARED_API_KEY == "" or SHARED_API_KEY == "YOUR_API_KEY_HERE" then return nil, "NO_KEY" end
-    if not messages or #messages == 0 then return nil, "NO_MESSAGES" end
-    
-    stats.apiCalls = stats.apiCalls + 1
-    
-    local maxTok = cfg.MaxTokens or 80
-    
-    local body = {
-        model = cfg.Model or "gpt-4o-mini",
-        messages = messages,
-        max_tokens = maxTok,
-        temperature = cfg.Temperature or 0.5,
-    }
-    
-    local ok, result = pcall(function()
-        return httpRequest({
-            Url = API_BASE .. "/chat/completions",
-            Method = "POST",
-            Headers = {
-                ["Authorization"] = "Bearer " .. SHARED_API_KEY,
-                ["Content-Type"] = "application/json"
-            },
-            Body = http:JSONEncode(body)
-        })
-    end)
-    
-    if not ok or not result or not result.Body then return nil, "REQUEST_FAILED" end
-    
-    local decodeOk, data = pcall(function() return http:JSONDecode(result.Body) end)
-    if not decodeOk or not data then return nil, "PARSE_ERROR" end
-    if data.error then return nil, data.error.message or "API_ERROR" end
-    if data.choices and data.choices[1] and data.choices[1].message then
-        return data.choices[1].message.content, nil
-    end
-    return nil, "NO_RESPONSE"
-end
-
 local function processMsg(player, message, smartMode)
     local cfg = getgenv().MapleConfig
     stats.messagesReceived = stats.messagesReceived + 1
-    
     if cfg.AFKMode then
         task.wait(cfg.ResponseDelay or 0.1)
         sendMessage(cfg.AFKMessage)
         stats.responsesSent = stats.responsesSent + 1
         return
     end
-    
     if not message or message == "" then return end
     message = message:gsub("^%s+", ""):gsub("%s+$", "")
     if #message == 0 then return end
-    
     if not smartMode then
         local cached = checkCache(message)
         if cached then
@@ -1383,42 +1203,35 @@ local function processMsg(player, message, smartMode)
             return
         end
     end
-    
     local msgs = buildMessages(player, message, smartMode)
-    local resp, err = makeRequest(msgs)
-    
-    if err then
-        stats.errors = stats.errors + 1
-        return
-    end
-    
-    if resp then
-        resp = tostring(resp):gsub("^%s+", ""):gsub("%s+$", ""):gsub("\n+", " "):gsub("%s+", " ")
-        resp = resp:gsub("[%*#`]", "")
-        
-        if resp:upper():find("%[IGNORE%]") or resp:upper() == "IGNORE" then
-            log("AI decided to ignore message from", player.DisplayName)
+    agentRequest("Chat", msgs, function(resp, err)
+        if err then
+            stats.errors = stats.errors + 1
             return
         end
-        
-        if #resp == 0 then return end
-        if #resp > MAX_MSG_LENGTH then resp = resp:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
-        
-        addToMemory(player, message, "user")
-        addToMemory(player, resp, "assistant")
-        if not smartMode then
-            addToCache(message, resp)
+        if resp then
+            resp = tostring(resp):gsub("^%s+", ""):gsub("%s+$", ""):gsub("\n+", " "):gsub("%s+", " "):gsub("[%*#`]", "")
+            if resp:upper():find("%[IGNORE%]") or resp:upper() == "IGNORE" then
+                aiLog("Chat", "Ignored message from " .. player.DisplayName)
+                return
+            end
+            if #resp == 0 then return end
+            if #resp > MAX_MSG_LENGTH then resp = resp:sub(1, MAX_MSG_LENGTH - 3) .. "..." end
+            addToMemory(player, message, "user")
+            addToMemory(player, resp, "assistant")
+            if not smartMode then addToCache(message, resp) end
+            task.wait(cfg.ResponseDelay or 0.1)
+            if sendMessage(resp) then
+                stats.responsesSent = stats.responsesSent + 1
+                aiLog("Chat", "Replied to " .. player.DisplayName)
+            else
+                stats.errors = stats.errors + 1
+            end
         end
-        
-        task.wait(cfg.ResponseDelay or 0.1)
-        if sendMessage(resp) then stats.responsesSent = stats.responsesSent + 1
-        else stats.errors = stats.errors + 1 end
-    end
+    end)
 end
-
 local function isSelfMessage(message)
     if tick() - lastSentTime < 2 then return true end
-    
     local msgLower = message:lower()
     local now = tick()
     for i = #recentlySent, 1, -1 do
@@ -1426,64 +1239,45 @@ local function isSelfMessage(message)
         if now - entry.time > 30 then break end
         if entry.msg == msgLower then return true end
         if msgLower:find(entry.msg:sub(1, 30), 1, true) then return true end
-        if entry.msg:find(msgLower:sub(1, 30), 1, true) then return true end
     end
     return false
 end
-
 local function onChat(player, message)
     local cfg = getgenv().MapleConfig
     if not cfg.MasterEnabled then return end
     if player == lp then return end
-    
     table.insert(chatHistory, {player = player.DisplayName, msg = message, isMe = false, time = tick()})
     while #chatHistory > MAX_CHAT_HISTORY do table.remove(chatHistory, 1) end
-    pcall(updateHistoryUI)
-    
     local msgKey = player.UserId .. "_" .. message:sub(1, 50)
     local now = tick()
-    
-    if processedMessages[msgKey] and now - processedMessages[msgKey] < 5 then
-        return
-    end
+    if processedMessages[msgKey] and now - processedMessages[msgKey] < 5 then return end
     processedMessages[msgKey] = now
-    
     for key, time in pairs(processedMessages) do
         if now - time > 10 then processedMessages[key] = nil end
     end
-    
-    if isSelfMessage(message) then
-        log("Ignored self-message:", message:sub(1, 30))
-        return
-    end
-    
+    if isSelfMessage(message) then return end
     if table.find(cfg.Blacklist, player.Name) or table.find(cfg.Blacklist, player.DisplayName) then return end
     if cfg.Range > 0 and getPlayerDistance(player.Character) > cfg.Range then return end
     if isSpamming(player, message) then return end
-    
     local smartMode = cfg.TriggerMode == "smart"
-    
     if not smartMode and not shouldRespond(player, message) then return end
-    
     task.spawn(function()
         processing = true
         pcall(function() processMsg(player, message, smartMode) end)
         processing = false
     end)
 end
-
 local function greetPlayer(player)
     if not getgenv().MapleConfig.AutoGreet then return end
     if not getgenv().MapleConfig.MasterEnabled then return end
     if player == lp then return end
-    
     task.delay(2, function()
         local greetMsg = getgenv().MapleConfig.AutoGreetMessage or "Hey {player}!"
         greetMsg = greetMsg:gsub("{player}", player.DisplayName)
         sendMessage(greetMsg)
+        aiLog("Chat", "Greeted " .. player.DisplayName)
     end)
 end
-
 local function setupListeners()
     pcall(function()
         if tcs then
@@ -1496,7 +1290,6 @@ local function setupListeners()
             end), "TCS")
         end
     end)
-    
     pcall(function()
         for _, player in ipairs(plrs:GetPlayers()) do
             if player ~= lp then
@@ -1511,11 +1304,9 @@ local function setupListeners()
         end), "PlayerAdded")
     end)
 end
-
 setupListeners()
-print("[Maple AI] v" .. SCRIPT_VERSION .. " Mobile loaded!")
-
+aiLog("System", "Maple AI v" .. SCRIPT_VERSION .. " loaded!")
+aiLog("System", "Agents: Chat, Pathfinding, Combat, NPC, Supervisor")
 end)
-
 if not success then warn("[Maple AI] Error: " .. tostring(errorMsg)) end
 return success
