@@ -196,9 +196,17 @@ local function agentRequest(agentName, messages, callback)
     end)
 end
 createAgent("Chat", "deepseek-r1-0528", "Main conversation")
-createAgent("Pathfinding", "gpt-4o-mini", "Navigation")
-createAgent("Combat", "gpt-4o-mini", "Combat strategy")
-createAgent("NPC", "deepseek-r1-0528", "NPC dialogue")
+
+-- Optional AI agents (can be disabled in config)
+if getgenv().MapleConfig.EnablePathfinding ~= false then
+    createAgent("Pathfinding", "gpt-4o-mini", "Navigation")
+end
+if getgenv().MapleConfig.EnableCombat ~= false then
+    createAgent("Combat", "gpt-4o-mini", "Combat strategy")
+end
+if getgenv().MapleConfig.EnableNPC ~= false then
+    createAgent("NPC", "deepseek-r1-0528", "NPC dialogue")
+end
 createAgent("Supervisor", "gpt-4o", "Content moderation")
 local PathfindingAI = {currentPath = nil, isNavigating = false}
 function PathfindingAI:createPath(character, targetPos, callback)
@@ -768,8 +776,11 @@ createToggle("Debug Mode", "DebugMode")
 createSection("AI MODELS (Per Agent)")
 local modelOptions = {"deepseek-r1-0528", "deepseek-r1", "gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"}
 createModelDropdown("💬 Chat Agent", "Chat", modelOptions)
+createToggle("Enable Pathfinding AI", "EnablePathfinding")
 createModelDropdown("🗺️ Pathfinding Agent", "Pathfinding", modelOptions)
+createToggle("Enable Combat AI", "EnableCombat")
 createModelDropdown("⚔️ Combat Agent", "Combat", modelOptions)
+createToggle("Enable NPC AI", "EnableNPC")
 createModelDropdown("🎭 NPC Agent", "NPC", modelOptions)
 createModelDropdown("🛡️ Supervisor Agent", "Supervisor", modelOptions)
 createSection("PATHFINDING")
